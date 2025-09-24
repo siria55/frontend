@@ -1,0 +1,138 @@
+{
+  "id": "mars_outpost",
+  "name": "火星前哨站",
+  "version": 1,
+  "grid": {
+    "cols": 64,
+    "rows": 64,
+    "tileSize": 1
+  },
+  "environment": {
+    "gravityScale": 0.38,
+    "ambientAudio": "audio/ambient/mars_wind.ogg",
+    "weatherCycle": {
+      "dayLengthMinutes": 24,
+      "events": [
+        {
+          "id": "sandstorm",
+          "label": "沙尘暴",
+          "intervalMinutes": 8,
+          "durationMinutes": 2
+        }
+      ]
+    }
+  },
+  "layers": [
+    {
+      "id": "terrain_base",
+      "type": "tilemap",
+      "tileset": "textures/mars/terrain.png",
+      "defaultTile": "regolith_flat"
+    },
+    {
+      "id": "structures",
+      "type": "entities",
+      "entities": [
+        {
+          "id": "central_dome",
+          "label": "联合指挥穹顶",
+          "kind": "poi",
+          "position": [32, 30],
+          "size": [6, 6],
+          "spawnPoint": true,
+          "components": [
+            "holo_board",
+            "status_panel"
+          ]
+        },
+        {
+          "id": "bio_lab",
+          "label": "生物实验温室",
+          "kind": "poi",
+          "position": [24, 40],
+          "size": [5, 5],
+          "questHooks": [
+            "quests/mars/daily_calibration.json"
+          ]
+        },
+        {
+          "id": "resource_strip",
+          "label": "资源开采带",
+          "kind": "zone",
+          "position": [10, 50],
+          "size": [20, 8],
+          "resourceProfile": "ore_sparse"
+        },
+        {
+          "id": "rover_bay",
+          "label": "外勤车库",
+          "kind": "poi",
+          "position": [46, 36],
+          "size": [6, 4],
+          "components": [
+            "vehicle_spawn",
+            "mission_console"
+          ]
+        },
+        {
+          "id": "solar_field",
+          "label": "能量塔阵列",
+          "kind": "zone",
+          "position": [50, 18],
+          "size": [10, 10],
+          "questHooks": [
+            "quests/mars/daily_calibration.json"
+          ]
+        }
+      ]
+    }
+  ],
+  "navigation": {
+    "walkable": [
+      "regolith_flat",
+      "regolith_packed"
+    ],
+    "blocked": [
+      {
+        "shape": "rect",
+        "position": [28, 26],
+        "size": [12, 12]
+      },
+      {
+        "shape": "rect",
+        "position": [48, 34],
+        "size": [8, 8]
+      }
+    ],
+    "hubs": [
+      {
+        "id": "dome_hub",
+        "position": [32, 30]
+      },
+      {
+        "id": "resource_hub",
+        "position": [20, 54]
+      }
+    ]
+  },
+  "agents": [
+    {
+      "id": "agent_main",
+      "prototype": "ARES-01",
+      "spawn": [32, 30],
+      "behaviors": [
+        "scan_operator",
+        "route_planner",
+        "sync_broadcaster"
+      ]
+    },
+    {
+      "id": "agent_support_01",
+      "prototype": "support_bot",
+      "spawn": [34, 32],
+      "behaviors": [
+        "maintenance_routine"
+      ]
+    }
+  ]
+}
