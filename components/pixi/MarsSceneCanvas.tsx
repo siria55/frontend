@@ -2,6 +2,7 @@
 
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -22,6 +23,12 @@ type SceneDefinition = {
     label: string;
     rect: [number, number, number, number];
   }>;
+  agents?: Array<{
+    id: string;
+    label: string;
+    position: [number, number];
+    color?: number;
+  }>;
 };
 
 const data = sceneData as SceneDefinition;
@@ -29,6 +36,7 @@ const data = sceneData as SceneDefinition;
 const BACKGROUND_COLOR = 0x120b1c;
 const BUILDING_COLOR = 0xea885a;
 const GRID_COLOR = 0x2a1f36;
+const DEFAULT_AGENT_COLOR = 0x7b9bff;
 
 const buildingLabelStyle = new TextStyle({
   fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
@@ -232,6 +240,105 @@ export default function MarsSceneCanvas() {
     [tileSize]
   );
 
+  const initialAgents = useMemo(() => data.agents ?? [], []);
+  const [agents, setAgents] = useState(initialAgents);
+
+  useEffect(() => {
+    const speed = 0.2;
+    const keyState: Record<string, boolean> = {};
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      if (![ 'w', 'a', 's', 'd' ].includes(key)) return;
+      keyState[key] = true;
+      event.preventDefault();
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      if (![ 'w', 'a', 's', 'd' ].includes(key)) return;
+      keyState[key] = false;
+      event.preventDefault();
+    };
+
+    let animationFrame = 0;
+
+    const update = () => {
+      const targetId = 'ares-01';
+      const hasInput = keyState.w || keyState.a || keyState.s || keyState.d;
+      if (hasInput) {
+        setAgents((prev) =>
+          prev.map((agent) => {
+            if (agent.id !== targetId) return agent;
+            const [x, y] = agent.position;
+            let nextX = x;
+            let nextY = y;
+            if (keyState.w) nextY -= speed;
+            if (keyState.s) nextY += speed;
+            if (keyState.a) nextX -= speed;
+            if (keyState.d) nextX += speed;
+
+            const clampedX = Math.min(Math.max(nextX, 0), cols - 1);
+            const clampedY = Math.min(Math.max(nextY, 0), rows - 1);
+
+            return {
+              ...agent,
+              position: [clampedX, clampedY] as [number, number]
+            };
+          })
+        );
+      }
+      animationFrame = requestAnimationFrame(update);
+    };
+
+    animationFrame = requestAnimationFrame(update);
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      cancelAnimationFrame(animationFrame);
+    };
+  }, [cols, rows]);
+
+  const agentElements = useMemo(() =>
+    agents.map((agent) => {
+      const [ax, ay] = agent.position;
+      const color = agent.color ?? DEFAULT_AGENT_COLOR;
+      const x = ax * tileSize;
+      const y = ay * tileSize;
+      return (
+        <Container key={agent.id} x={x} y={y}>
+          <Graphics
+            draw={(g) => {
+              g.clear();
+              g.beginFill(color, 0.95);
+              g.drawRect(0, 0, tileSize, tileSize);
+              g.endFill();
+            }}
+          />
+          <Text
+            text={agent.label}
+            anchor={{ x: 0.5, y: 0 }}
+            x={tileSize / 2}
+            y={tileSize + 4}
+            style={new TextStyle({
+              fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+              fontSize: Math.max(tileSize * 0.4, 10),
+              fill: '#f5f5ff',
+              dropShadow: true,
+              dropShadowDistance: 1,
+              dropShadowColor: '#0d0d1c'
+            })}
+          />
+        </Container>
+      );
+    }),
+  [agents, tileSize]
+  );
+
   return (
     <div
       onPointerDown={handlePointerDown}
@@ -271,6 +378,7 @@ export default function MarsSceneCanvas() {
               />
             );
           })}
+          {agentElements}
         </Container>
       </Stage>
     </div>
