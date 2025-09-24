@@ -1,259 +1,41 @@
 {
-  "id": "mars_outpost",
-  "name": "火星前哨站",
-  "version": 1,
+  "id": "mars_outpost_min",
+  "name": "火星前哨站 · 原型",
   "grid": {
-    "cols": 64,
-    "rows": 64,
+    "cols": 32,
+    "rows": 24,
     "tileSize": 1
   },
-  "environment": {
-    "gravityScale": 0.38,
-    "ambientAudio": "audio/ambient/mars_wind.ogg",
-    "weatherCycle": {
-      "dayLengthMinutes": 24,
-      "events": [
-        {
-          "id": "sandstorm",
-          "label": "沙尘暴",
-          "intervalMinutes": 8,
-          "durationMinutes": 2
-        }
-      ]
-    }
-  },
-  "layers": [
-    {
-      "id": "terrain_base",
-      "type": "tilemap",
-      "tileset": "textures/mars/terrain.png",
-      "defaultTile": "regolith_flat"
-    },
-    {
-      "id": "structures",
-      "type": "entities",
-      "entities": [
-        {
-          "id": "central_dome",
-          "label": "联合指挥穹顶",
-          "kind": "command",
-          "shape": "round",
-          "position": [29, 27],
-          "size": [8, 8],
-          "spawnPoint": true,
-          "components": [
-            "holo_board",
-            "status_panel"
-          ]
-        },
-        {
-          "id": "dome_plaza",
-          "label": "穹顶环形广场",
-          "kind": "plaza",
-          "shape": "ring",
-          "position": [26, 24],
-          "size": [14, 14],
-          "thickness": 2
-        },
-        {
-          "id": "bio_lab",
-          "label": "生物实验温室",
-          "kind": "habitat",
-          "shape": "round",
-          "position": [22, 38],
-          "size": [7, 7],
-          "questHooks": [
-            "quests/mars/daily_calibration.json"
-          ]
-        },
-        {
-          "id": "hab_cluster_north",
-          "label": "居住模组 · 北",
-          "kind": "habitat",
-          "shape": "rect",
-          "position": [26, 18],
-          "size": [10, 6]
-        },
-        {
-          "id": "hab_cluster_south",
-          "label": "居住模组 · 南",
-          "kind": "habitat",
-          "shape": "rect",
-          "position": [30, 44],
-          "size": [10, 6]
-        },
-        {
-          "id": "resource_strip",
-          "label": "资源开采带",
-          "kind": "industrial",
-          "shape": "rect",
-          "position": [10, 50],
-          "size": [22, 10],
-          "resourceProfile": "ore_sparse"
-        },
-        {
-          "id": "landing_pad",
-          "label": "货运着陆台",
-          "kind": "pad",
-          "shape": "round",
-          "position": [14, 16],
-          "size": [10, 10]
-        },
-        {
-          "id": "rover_bay",
-          "label": "外勤车库",
-          "kind": "logistics",
-          "shape": "rect",
-          "position": [44, 34],
-          "size": [8, 6],
-          "components": [
-            "vehicle_spawn",
-            "mission_console"
-          ]
-        },
-        {
-          "id": "solar_field",
-          "label": "能量塔阵列",
-          "kind": "energy",
-          "shape": "grid",
-          "position": [50, 16],
-          "size": [12, 12],
-          "questHooks": [
-            "quests/mars/daily_calibration.json"
-          ]
-        },
-        {
-          "id": "comm_array",
-          "label": "通信中继塔",
-          "kind": "tower",
-          "shape": "spoke",
-          "position": [38, 20],
-          "size": [4, 12]
-        },
-        {
-          "id": "refinery",
-          "label": "矿石精炼站",
-          "kind": "industrial",
-          "shape": "rect",
-          "position": [16, 46],
-          "size": [8, 6]
-        },
-        {
-          "id": "shield_wall",
-          "label": "磁场防御带",
-          "kind": "barrier",
-          "shape": "arc",
-          "position": [20, 12],
-          "size": [28, 36],
-          "thickness": 3
-        }
-      ]
-    },
-    {
-      "id": "transit",
-      "type": "corridors",
-      "corridors": [
-        {
-          "id": "spine_north",
-          "label": "北向磁悬走廊",
-          "from": [33, 30],
-          "to": [33, 14],
-          "width": 2.4
-        },
-        {
-          "id": "spine_south",
-          "label": "南向磁悬走廊",
-          "from": [33, 30],
-          "to": [33, 48],
-          "width": 2.4
-        },
-        {
-          "id": "spine_west",
-          "label": "西向磁悬走廊",
-          "from": [33, 30],
-          "to": [18, 31],
-          "width": 2
-        },
-        {
-          "id": "spine_east",
-          "label": "东向磁悬走廊",
-          "from": [33, 30],
-          "to": [48, 30],
-          "width": 2
-        }
-      ]
-    },
-    {
-      "id": "markers",
-      "type": "markers",
-      "markers": [
-        {
-          "id": "cache_alpha",
-          "label": "稀有矿藏",
-          "position": [18, 54],
-          "tone": "rare"
-        },
-        {
-          "id": "cache_beta",
-          "label": "氧气胶囊储备",
-          "position": [40, 42],
-          "tone": "vital"
-        },
-        {
-          "id": "cache_gamma",
-          "label": "无人机停泊点",
-          "position": [52, 28],
-          "tone": "drone"
-        }
-      ]
-    }
+  "walkable": [
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
   ],
-  "navigation": {
-    "walkable": [
-      "regolith_flat",
-      "regolith_packed"
-    ],
-    "blocked": [
-      {
-        "shape": "rect",
-        "position": [28, 26],
-        "size": [12, 12]
-      },
-      {
-        "shape": "rect",
-        "position": [48, 34],
-        "size": [8, 8]
-      }
-    ],
-    "hubs": [
-      {
-        "id": "dome_hub",
-        "position": [32, 30]
-      },
-      {
-        "id": "resource_hub",
-        "position": [20, 54]
-      }
-    ]
-  },
-  "agents": [
-    {
-      "id": "agent_main",
-      "prototype": "ARES-01",
-      "spawn": [32, 30],
-      "behaviors": [
-        "scan_operator",
-        "route_planner",
-        "sync_broadcaster"
-      ]
-    },
-    {
-      "id": "agent_support_01",
-      "prototype": "support_bot",
-      "spawn": [34, 32],
-      "behaviors": [
-        "maintenance_routine"
-      ]
-    }
+  "buildings": [
+    { "id": "central_dome", "label": "联合指挥穹顶", "rect": [10, 6, 8, 6] },
+    { "id": "bio_lab", "label": "生物温室", "rect": [4, 14, 6, 4] },
+    { "id": "hab_south", "label": "居住区", "rect": [20, 15, 8, 5] },
+    { "id": "rover_bay", "label": "外勤车库", "rect": [24, 7, 6, 4] }
   ]
 }

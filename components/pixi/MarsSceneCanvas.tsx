@@ -2,682 +2,303 @@
 
 import {
   useCallback,
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState
 } from 'react';
-import { Container, Graphics, Stage, Text, useTick } from '@pixi/react';
-import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
-import type { Graphics as PixiGraphics, TextStyle } from 'pixi.js';
-import { TextStyle as PixiTextStyle } from 'pixi.js';
-import { AStarFinder, DiagonalMovement, Grid as PFGrid } from 'pathfinding';
+import type { PointerEvent as ReactPointerEvent } from 'react';
+import { Container, Graphics, Stage, Text } from '@pixi/react';
+import type { Graphics as PixiGraphics } from 'pixi.js';
+import { TextStyle } from 'pixi.js';
 
-import marsSceneRaw from '@/assets/scenes/mars_outpost.json';
-import { useNpcStore } from '@/store/npcStore';
-import { useWorldStore } from '@/store/worldStore';
+import sceneData from '@/assets/scenes/mars_outpost.json';
 
-type EntityShape = 'round' | 'ring' | 'rect' | 'grid' | 'spoke' | 'arc';
-
-type Entity = {
-  id: string;
-  label?: string;
-  position: [number, number];
-  size: [number, number];
-  kind?: string;
-  shape?: EntityShape;
-  thickness?: number;
-  components?: string[];
-};
-
-type Corridor = {
-  id: string;
-  label?: string;
-  from: [number, number];
-  to: [number, number];
-  width?: number;
-};
-
-type Marker = {
-  id: string;
-  label?: string;
-  position: [number, number];
-  tone?: 'rare' | 'vital' | 'drone';
-};
-
-type SceneData = {
+type SceneDefinition = {
   grid: { cols: number; rows: number };
-  layers: Array<{
+  walkable: number[][];
+  buildings: Array<{
     id: string;
-    type: string;
-    entities?: Entity[];
-    corridors?: Corridor[];
-    markers?: Marker[];
+    label: string;
+    rect: [number, number, number, number];
   }>;
-  navigation: {
-    walkable: string[];
-    blocked: Array<{
-      shape: 'rect';
-      position: [number, number];
-      size: [number, number];
-    }>;
-  };
 };
 
-type ViewportState = {
-  x: number;
-  y: number;
-  scale: number;
-};
+const data = sceneData as SceneDefinition;
 
-const marsData = marsSceneRaw as SceneData;
+const BACKGROUND_COLOR = 0x120b1c;
+const WALKABLE_COLOR = 0x1f2636;
+const BLOCKED_COLOR = 0x0d0a13;
+const BUILDING_COLOR = 0xea885a;
+const BUILDING_BORDER = 0xffc99b;
+const GRID_COLOR = 0x2a1f36;
 
-const TILE_SIZE = 24;
-const BASE_WIDTH = marsData.grid.cols * TILE_SIZE;
-const BASE_HEIGHT = marsData.grid.rows * TILE_SIZE;
-const MIN_SCALE = 0.4;
-const MAX_SCALE = 2.4;
+const buildingLabelStyle = new TextStyle({
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  fontSize: 14,
+  fontWeight: '600',
+  fill: '#1a0c1c',
+  align: 'center'
+});
 
-const structureColor: Record<string, number> = {
-  command: 0xffc26f,
-  plaza: 0xf5d58a,
-  habitat: 0xff9ecd,
-  industrial: 0xf77b72,
-  energy: 0x6fd4ff,
-  pad: 0x7b95ff,
-  logistics: 0xa6ffe6,
-  tower: 0xfff48c,
-  barrier: 0xfbceff
-};
-
-const markerColor: Record<string, number> = {
-  rare: 0xfff0c4,
-  vital: 0xa6ffe6,
-  drone: 0xbca3ff
-};
-
-const toPixels = ([x, y]: [number, number]) => [x * TILE_SIZE, y * TILE_SIZE] as [number, number];
-
-const formatTime = (minutes: number) => {
-  const total = Math.floor(minutes) % 1440;
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  const pad = (v: number) => v.toString().padStart(2, '0');
-  return `${pad(h)}:${pad(m)}`;
-};
-
-const buildBlockedMatrix = (scene: SceneData) => {
-  const { cols, rows } = scene.grid;
-  const matrix = Array.from({ length: rows }, () => Array(cols).fill(0));
-
-  const markRect = (position: [number, number], size: [number, number]) => {
-    const [px, py] = position;
-    const [sx, sy] = size;
-    for (let y = py; y < py + sy; y += 1) {
-      if (y < 0 || y >= rows) continue;
-      for (let x = px; x < px + sx; x += 1) {
-        if (x < 0 || x >= cols) continue;
-        matrix[y][x] = 1;
-      }
-    }
-  };
-
-  scene.navigation.blocked.forEach((block) => {
-    if (block.shape === 'rect') {
-      markRect(block.position, block.size);
-    }
-  });
-
-  const structures = scene.layers.find((layer) => layer.id === 'structures');
-  structures?.entities?.forEach((entity) => {
-    if (!entity.shape) return;
-    if (entity.shape === 'rect' || entity.shape === 'round' || entity.shape === 'grid') {
-      markRect(entity.position, entity.size);
-    }
-  });
-
-  return matrix;
-};
-
-const useResizeObserver = (ref: React.RefObject<HTMLElement>) => {
-  const [size, setSize] = useState({ width: BASE_WIDTH, height: BASE_HEIGHT });
+const useViewportSize = () => {
+  const [size, setSize] = useState({ width: 1280, height: 720 });
 
   useLayoutEffect(() => {
-    if (!ref.current) return;
-    const element = ref.current;
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) return;
-      const { width, height } = entry.contentRect;
-      setSize({
-        width: Math.max(width, 320),
-        height: Math.max(height, 240)
-      });
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [ref]);
+    if (typeof window === 'undefined') return;
+    const update = () => {
+      setSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
 
   return size;
 };
 
-const useDpi = () => {
-  const [dpi, setDpi] = useState(1);
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    setDpi(Math.min(window.devicePixelRatio || 1, 2));
-  }, []);
-  return dpi;
-};
+export default function MarsSceneCanvas() {
+  const { width, height } = useViewportSize();
+  const cols = data.grid.cols;
+  const rows = data.grid.rows;
 
-const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+  const tileSize = useMemo(() => {
+    const tentative = Math.floor(Math.min(width / cols, height / rows));
+    return Math.max(tentative, 12);
+  }, [cols, height, rows, width]);
 
-const StructureShape = ({ entity }: { entity: Entity }) => {
-  const [x, y] = entity.position;
-  const [w, h] = entity.size;
-  const color = structureColor[entity.kind ?? ''] ?? 0xffbfbf;
-  const px = x * TILE_SIZE;
-  const py = y * TILE_SIZE;
-  const width = w * TILE_SIZE;
-  const height = h * TILE_SIZE;
+  const mapWidth = cols * tileSize;
+  const mapHeight = rows * tileSize;
 
-  const draw = useCallback(
-    (g: PixiGraphics) => {
-      g.clear();
-      g.beginFill(color, 0.85);
-      if (entity.shape === 'round') {
-        g.drawCircle(px + width / 2, py + height / 2, Math.max(width, height) / 2);
-      } else if (entity.shape === 'ring') {
-        g.beginFill(0, 0);
-        g.lineStyle(entity.thickness ?? 6, color, 0.9);
-        g.drawCircle(px + width / 2, py + height / 2, Math.max(width, height) / 2);
-      } else if (entity.shape === 'grid') {
-        g.beginFill(color, 0.18);
-        g.drawRoundedRect(px, py, width, height, 12);
-        g.endFill();
-        g.lineStyle(1, color, 0.8);
-        const cell = TILE_SIZE * 2;
-        for (let yy = py + cell / 2; yy < py + height; yy += cell) {
-          for (let xx = px + cell / 2; xx < px + width; xx += cell) {
-            g.beginFill(color, 0.55);
-            g.drawCircle(xx, yy, TILE_SIZE * 0.6);
-            g.endFill();
-          }
-        }
-      } else if (entity.shape === 'spoke') {
-        g.beginFill(color, 0.18);
-        g.drawRoundedRect(px, py, width, height, 10);
-        g.endFill();
-        g.lineStyle(3, color, 0.9);
-        const centerX = px + width / 2;
-        const centerY = py + height / 2;
-        g.moveTo(centerX, py);
-        g.lineTo(centerX, py + height);
-        g.moveTo(px, centerY);
-        g.lineTo(px + width, centerY);
-      } else if (entity.shape === 'arc') {
-        const centerX = px + width / 2;
-        const centerY = py + height / 2;
-        const outerRadius = Math.max(width, height) * 0.6;
-        g.beginFill(color, 0.08);
-        g.drawEllipse(centerX, centerY, width, height);
-        g.endFill();
-        g.lineStyle(entity.thickness ?? 5, color, 0.8);
-        g.arc(centerX, centerY, outerRadius, Math.PI * 0.2, Math.PI * 0.9);
-      } else {
-        g.drawRoundedRect(px, py, width, height, 12);
-      }
-      g.endFill();
-    },
-    [color, entity.shape, entity.thickness, height, px, py, width]
-  );
-
-  return <Graphics draw={draw} />;
-};
-
-const structureLabelStyle = new PixiTextStyle({
-  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  fontSize: 13,
-  fontWeight: '600',
-  fill: '#0f0615',
-  align: 'center'
-});
-
-const StructureLabel = ({ entity }: { entity: Entity }) => {
-  const [x, y] = entity.position;
-  const [w, h] = entity.size;
-  const text = entity.label ?? entity.id;
-  return (
-    <Text
-      text={text}
-      anchor={0.5}
-      x={(x + w / 2) * TILE_SIZE}
-      y={(y + h / 2) * TILE_SIZE}
-      style={structureLabelStyle}
-    />
-  );
-};
-
-const CorridorLayer = ({ corridors }: { corridors: Corridor[] }) => {
-  const draw = useCallback(
-    (g: PixiGraphics) => {
-      g.clear();
-      corridors.forEach((corridor) => {
-        const [fromX, fromY] = toPixels(corridor.from);
-        const [toX, toY] = toPixels(corridor.to);
-        const width = (corridor.width ?? 2) * 2;
-        g.lineStyle(width, 0x67e8f9, 0.4);
-        g.moveTo(fromX, fromY);
-        g.lineTo(toX, toY);
-        g.lineStyle(width / 2, 0xffffff, 0.8);
-        g.moveTo(fromX, fromY);
-        g.lineTo(toX, toY);
-      });
-    },
-    [corridors]
-  );
-
-  return <Graphics draw={draw} />;
-};
-
-const MarkerNode = ({ marker }: { marker: Marker }) => {
-  const color = markerColor[marker.tone ?? 'rare'] ?? 0xffffff;
-  const [x, y] = marker.position;
-  const [px, py] = toPixels([x, y]);
-
-  const draw = useCallback(
-    (g: PixiGraphics) => {
-      g.clear();
-      g.beginFill(color, 0.95);
-      g.drawCircle(px, py, TILE_SIZE * 0.5);
-      g.endFill();
-      g.beginFill(0x0b0315, 1);
-      g.drawCircle(px, py, TILE_SIZE * 0.2);
-      g.endFill();
-    },
-    [color, px, py]
-  );
-
-  return <Graphics draw={draw} />;
-};
-
-const NpcSprite = ({
-  x,
-  y,
-  color,
-  name
-}: {
-  x: number;
-  y: number;
-  color: number;
-  name: string;
-}) => {
-  const draw = useCallback(
-    (g: PixiGraphics) => {
-      g.clear();
-      g.beginFill(color, 1);
-      g.drawCircle(0, 0, TILE_SIZE * 0.4);
-      g.endFill();
-      g.lineStyle(2, 0xffffff, 0.7);
-      g.moveTo(0, 0);
-      g.lineTo(0, -TILE_SIZE * 0.55);
-    },
-    [color]
-  );
-
-  return (
-    <Container x={x * TILE_SIZE} y={y * TILE_SIZE} sortableChildren>
-      <Graphics draw={draw} />
-      <Text
-        text={name}
-        anchor={{ x: 0.5, y: 0 }}
-        y={TILE_SIZE * 0.6}
-        style={new PixiTextStyle({
-          fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-          fontSize: 12,
-          fill: '#ffffff',
-          dropShadow: true,
-          dropShadowDistance: 1,
-          dropShadowColor: '#0d0d22'
-        })}
-      />
-    </Container>
-  );
-};
-
-const NpcLayer = () => {
-  const npcs = useNpcStore((state) => state.npcs);
-  const labelStyle = useMemo(
-    () =>
-      new PixiTextStyle({
-        fontFamily: 'Menlo, monospace',
-        fontSize: 11,
-        fill: '#f0f4ff'
-      }),
-    []
-  );
-
-  return (
-    <Container>
-      {npcs.map((npc) => (
-        <Container key={npc.id}>
-          <NpcSprite
-            x={npc.position.x}
-            y={npc.position.y}
-            color={npc.color}
-            name={npc.name}
-          />
-          {npc.path.length > 0 && (
-            <Graphics
-              draw={(g) => {
-                g.clear();
-                g.lineStyle(2, npc.color, 0.45);
-                g.moveTo(npc.position.x * TILE_SIZE, npc.position.y * TILE_SIZE);
-                npc.path.forEach(([px, py]) => {
-                  g.lineTo(px * TILE_SIZE, py * TILE_SIZE);
-                });
-              }}
-            />
-          )}
-          <Text
-            text={`(${npc.position.x.toFixed(1)}, ${npc.position.y.toFixed(1)})`}
-            anchor={{ x: 0.5, y: 0 }}
-            x={npc.position.x * TILE_SIZE}
-            y={npc.position.y * TILE_SIZE - TILE_SIZE}
-            style={labelStyle}
-          />
-        </Container>
-      ))}
-    </Container>
-  );
-};
-
-const SimulationTicker = ({
-  planPath
-}: {
-  planPath: (from: { x: number; y: number }, to: [number, number]) => [number, number][];
-}) => {
-  const tickWorld = useWorldStore((state) => state.tick);
-  const tickNpc = useNpcStore((state) => state.tick);
-
-  useTick((delta) => {
-    tickWorld(delta);
-    tickNpc(delta, planPath);
-  });
-
-  return null;
-};
-
-const GridOverlay = () => {
-  const draw = useCallback((g: PixiGraphics) => {
-    g.clear();
-    g.lineStyle(1, 0x241531, 0.4);
-    for (let x = 0; x <= BASE_WIDTH; x += TILE_SIZE * 4) {
-      g.moveTo(x, 0);
-      g.lineTo(x, BASE_HEIGHT);
-    }
-    for (let y = 0; y <= BASE_HEIGHT; y += TILE_SIZE * 4) {
-      g.moveTo(0, y);
-      g.lineTo(BASE_WIDTH, y);
-    }
+  const clampAxis = useCallback((value: number, available: number) => {
+    if (available === 0) return 0;
+    const min = available < 0 ? available : 0;
+    const max = available > 0 ? available : 0;
+    if (min === max) return min;
+    return Math.min(Math.max(value, min), max);
   }, []);
 
-  return <Graphics draw={draw} />;
-};
-
-const MapLayers = () => {
-  const structures = useMemo(
-    () => marsData.layers.find((layer) => layer.id === 'structures')?.entities ?? [],
-    []
-  );
-  const corridors = useMemo(
-    () => marsData.layers.find((layer) => layer.id === 'transit')?.corridors ?? [],
-    []
-  );
-  const markers = useMemo(
-    () => marsData.layers.find((layer) => layer.id === 'markers')?.markers ?? [],
-    []
+  const clampCamera = useCallback(
+    (x: number, y: number) => {
+      const availableX = width - mapWidth;
+      const availableY = height - mapHeight;
+      return {
+        x: clampAxis(x, availableX),
+        y: clampAxis(y, availableY)
+      };
+    },
+    [clampAxis, height, mapHeight, mapWidth, width]
   );
 
-  return (
-    <Container sortableChildren>
-      <GridOverlay />
-      <CorridorLayer corridors={corridors} />
-      {structures.map((entity) => (
-        <Container key={entity.id}>
-          <StructureShape entity={entity} />
-          <StructureLabel entity={entity} />
-        </Container>
-      ))}
-      {markers.map((marker) => (
-        <MarkerNode key={marker.id} marker={marker} />
-      ))}
-      <NpcLayer />
-    </Container>
-  );
-};
-
-const LogsPanel = () => {
-  const logs = useNpcStore((state) => state.logs);
-  const time = useWorldStore((state) => state.minutes);
-  const weather = useWorldStore((state) => state.weather);
-
-  return (
-    <aside
-      style={{
-        width: '320px',
-        minHeight: '360px',
-        maxHeight: '80vh',
-        padding: '1.4rem',
-        borderRadius: '16px',
-        border: '1px solid rgba(255,255,255,0.08)',
-        background: 'rgba(15,12,24,0.82)',
-        backdropFilter: 'blur(14px)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1rem',
-        color: '#f5f5f6'
-      }}
-    >
-      <section>
-        <h2 style={{ margin: 0, fontSize: '1.2rem' }}>前哨站状态</h2>
-        <p style={{ margin: '0.35rem 0 0', color: '#b1b3c9' }}>
-          当前时间：{formatTime(time)} · 天气：{weather}
-        </p>
-      </section>
-      <section style={{ flex: 1, overflow: 'auto' }}>
-        <h3 style={{ margin: '0 0 0.6rem', fontSize: '1rem', color: '#c7c9de' }}>事件日志</h3>
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {logs.map((entry) => (
-            <li
-              key={entry.id}
-              style={{
-                padding: '0.6rem 0.8rem',
-                borderRadius: '12px',
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.05)'
-              }}
-            >
-              <span style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>{entry.text}</span>
-              <br />
-              <span style={{ fontSize: '0.75rem', color: '#7e829b' }}>
-                {new Date(entry.timestamp).toLocaleTimeString('zh-CN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit'
-                })}
-              </span>
-            </li>
-          ))}
-          {!logs.length && (
-            <li style={{ color: '#7e829b' }}>暂无事件，巡逻进行中。</li>
-          )}
-        </ul>
-      </section>
-    </aside>
-  );
-};
-
-const useViewport = (size: { width: number; height: number }) => {
-  const [viewport, setViewport] = useState<ViewportState>({ x: 0, y: 0, scale: 1 });
-  const interacted = useRef(false);
-
-  useEffect(() => {
-    if (interacted.current) return;
-    const scale = clamp(
-      Math.min(size.width / BASE_WIDTH, size.height / BASE_HEIGHT),
-      MIN_SCALE,
-      1.2
-    );
-    const centeredX = (size.width - BASE_WIDTH * scale) / 2;
-    const centeredY = (size.height - BASE_HEIGHT * scale) / 2;
-    setViewport({ x: centeredX, y: centeredY, scale });
-  }, [size.height, size.width]);
-
-  const dragRef = useRef({
+  const cameraRef = useRef({ x: 0, y: 0 });
+  const dragState = useRef({
     active: false,
+    pointerId: -1,
     startX: 0,
     startY: 0,
     originX: 0,
     originY: 0
   });
 
-  const onPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    interacted.current = true;
-    dragRef.current = {
-      active: true,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: viewport.x,
-      originY: viewport.y
-    };
-  }, [viewport.x, viewport.y]);
+  const [camera, setCamera] = useState(() => clampCamera(0, 0));
+  cameraRef.current = camera;
 
-  const onPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current.active) return;
-    const dx = event.clientX - dragRef.current.startX;
-    const dy = event.clientY - dragRef.current.startY;
-    setViewport((prev) => ({ ...prev, x: dragRef.current.originX + dx, y: dragRef.current.originY + dy }));
-  }, []);
+  useLayoutEffect(() => {
+    const availableX = width - mapWidth;
+    const availableY = height - mapHeight;
+    const target = clampCamera(availableX / 2, availableY / 2);
+    setCamera((prev) => {
+      if (dragState.current.active) {
+        return clampCamera(prev.x, prev.y);
+      }
+      return target;
+    });
+  }, [clampCamera, height, mapHeight, mapWidth, width]);
 
-  const onPointerUp = useCallback(() => {
-    dragRef.current.active = false;
-  }, []);
+  const setCameraClamped = useCallback(
+    (nextX: number, nextY: number) => {
+      const next = clampCamera(nextX, nextY);
+      setCamera(next);
+    },
+    [clampCamera]
+  );
 
-  const onWheel = useCallback(
-    (event: ReactWheelEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      interacted.current = true;
-      const { clientX, clientY, deltaY } = event;
-      const rect = event.currentTarget.getBoundingClientRect();
-      const pointerX = clientX - rect.left;
-      const pointerY = clientY - rect.top;
-      setViewport((prev) => {
-        const zoomFactor = 1 - deltaY * 0.0015;
-        const nextScale = clamp(prev.scale * zoomFactor, MIN_SCALE, MAX_SCALE);
-        const worldX = (pointerX - prev.x) / prev.scale;
-        const worldY = (pointerY - prev.y) / prev.scale;
-        const nextX = pointerX - worldX * nextScale;
-        const nextY = pointerY - worldY * nextScale;
-        return { x: nextX, y: nextY, scale: nextScale };
-      });
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.currentTarget.setPointerCapture(event.pointerId);
+      dragState.current = {
+        active: true,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        originX: cameraRef.current.x,
+        originY: cameraRef.current.y
+      };
+      setIsDragging(true);
     },
     []
   );
 
-  return { viewport, onPointerDown, onPointerMove, onPointerUp, onWheel };
-};
-
-export default function MarsSceneCanvas() {
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const dpi = useDpi();
-  const size = useResizeObserver(wrapperRef);
-  const { viewport, onPointerDown, onPointerMove, onPointerUp, onWheel } = useViewport(size);
-
-  const navigationMatrix = useMemo(() => buildBlockedMatrix(marsData), []);
-  const planPath = useCallback(
-    (from: { x: number; y: number }, to: [number, number]) => {
-      const gridMatrix = navigationMatrix.map((row) => row.slice());
-      const grid = new PFGrid(marsData.grid.cols, marsData.grid.rows, gridMatrix);
-      const finder = new AStarFinder({ diagonalMovement: DiagonalMovement.Never });
-      const startX = clamp(Math.round(from.x), 0, marsData.grid.cols - 1);
-      const startY = clamp(Math.round(from.y), 0, marsData.grid.rows - 1);
-      const [targetX, targetY] = [
-        clamp(Math.round(to[0]), 0, marsData.grid.cols - 1),
-        clamp(Math.round(to[1]), 0, marsData.grid.rows - 1)
-      ];
-      const rawPath = finder.findPath(startX, startY, targetX, targetY, grid);
-      return rawPath.map(([x, y]) => [x, y] as [number, number]);
+  const handlePointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!dragState.current.active) return;
+      const dx = event.clientX - dragState.current.startX;
+      const dy = event.clientY - dragState.current.startY;
+      setCameraClamped(dragState.current.originX + dx, dragState.current.originY + dy);
     },
-    [navigationMatrix]
+    [setCameraClamped]
   );
 
-  const stageWidth = Math.round(size.width);
-  const stageHeight = Math.round(size.height);
+  const clearDragState = useCallback(() => {
+    dragState.current = {
+      active: false,
+      pointerId: -1,
+      startX: 0,
+      startY: 0,
+      originX: 0,
+      originY: 0
+    };
+    setIsDragging(false);
+  }, []);
+
+  const handlePointerUp = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (dragState.current.pointerId !== -1) {
+        event.currentTarget.releasePointerCapture(dragState.current.pointerId);
+      }
+      clearDragState();
+    },
+    [clearDragState]
+  );
+
+  const handlePointerLeave = useCallback(() => {
+    clearDragState();
+  }, [clearDragState]);
+
+  const drawBackground = useCallback(
+    (g: PixiGraphics) => {
+      g.clear();
+      g.beginFill(BACKGROUND_COLOR);
+      g.drawRect(0, 0, width, height);
+      g.endFill();
+
+      const spacing = tileSize;
+      if (spacing <= 0) return;
+      const offsetX = ((camera.x % spacing) + spacing) % spacing;
+      const offsetY = ((camera.y % spacing) + spacing) % spacing;
+
+      g.lineStyle(1, GRID_COLOR, 0.25);
+      for (let x = -spacing; x <= width + spacing; x += spacing) {
+        const px = x - offsetX;
+        g.moveTo(px, 0);
+        g.lineTo(px, height);
+      }
+      for (let y = -spacing; y <= height + spacing; y += spacing) {
+        const py = y - offsetY;
+        g.moveTo(0, py);
+        g.lineTo(width, py);
+      }
+    },
+    [camera.x, camera.y, height, tileSize, width]
+  );
+
+  const drawWalkable = useCallback(
+    (g: PixiGraphics) => {
+      g.clear();
+      for (let y = 0; y < rows; y += 1) {
+        for (let x = 0; x < cols; x += 1) {
+          const color = data.walkable[y]?.[x] === 1 ? WALKABLE_COLOR : BLOCKED_COLOR;
+          g.beginFill(color);
+          g.drawRect(x * tileSize, y * tileSize, tileSize, tileSize);
+          g.endFill();
+        }
+      }
+    },
+    [cols, rows, tileSize]
+  );
+
+  const drawGrid = useCallback(
+    (g: PixiGraphics) => {
+      g.clear();
+      g.lineStyle(1, GRID_COLOR, 0.3);
+      for (let x = 0; x <= cols; x += 1) {
+        const px = x * tileSize;
+        g.moveTo(px, 0);
+        g.lineTo(px, mapHeight);
+      }
+      for (let y = 0; y <= rows; y += 1) {
+        const py = y * tileSize;
+        g.moveTo(0, py);
+        g.lineTo(mapWidth, py);
+      }
+    },
+    [cols, mapHeight, mapWidth, rows, tileSize]
+  );
+
+  const drawBuildings = useCallback(
+    (g: PixiGraphics) => {
+      g.clear();
+      data.buildings.forEach((building) => {
+        const [x, y, w, h] = building.rect;
+        const px = x * tileSize;
+        const py = y * tileSize;
+        const bw = w * tileSize;
+        const bh = h * tileSize;
+        g.beginFill(BUILDING_COLOR, 0.85);
+        g.drawRoundedRect(px, py, bw, bh, 6);
+        g.endFill();
+        g.lineStyle(2, BUILDING_BORDER, 0.9);
+        g.drawRoundedRect(px, py, bw, bh, 6);
+        g.lineStyle(0);
+      });
+    },
+    [tileSize]
+  );
 
   return (
     <div
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerLeave}
       style={{
-        display: 'flex',
-        gap: '1.5rem',
-        width: '100%',
-        padding: '1.8rem 2.4rem',
-        boxSizing: 'border-box',
-        alignItems: 'flex-start',
-        color: '#f4f2ff'
+        width: '100vw',
+        height: '100vh',
+        overflow: 'hidden',
+        background: 'radial-gradient(circle at top, rgba(227, 93, 54, 0.18), transparent 60%), rgba(9,6,20,0.95)',
+        cursor: isDragging ? 'grabbing' : 'grab'
       }}
     >
-      <div
-        ref={wrapperRef}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerLeave={onPointerUp}
-        onWheel={onWheel}
-        style={{
-          flex: '1 1 auto',
-          minHeight: '480px',
-          height: '70vh',
-          borderRadius: '18px',
-          border: '1px solid rgba(255,255,255,0.1)',
-          background: 'radial-gradient(circle at top, rgba(220, 78, 48, 0.2), transparent 70%), rgba(9,6,20,0.9)',
-          position: 'relative',
-          overflow: 'hidden',
-          boxShadow: '0 30px 80px rgba(15,0,30,0.55)'
-        }}
+      <Stage
+        width={width}
+        height={height}
+        options={{ backgroundAlpha: 0, antialias: true }}
+        style={{ width: '100%', height: '100%' }}
       >
-        <Stage
-          width={stageWidth}
-          height={stageHeight}
-          options={{
-            backgroundAlpha: 0,
-            antialias: true,
-            resolution: dpi
-          }}
-          style={{ width: '100%', height: '100%' }}
-        >
-          <SimulationTicker planPath={planPath} />
-          <Container x={viewport.x} y={viewport.y} scale={{ x: viewport.scale, y: viewport.scale }}>
-            <MapLayers />
-          </Container>
-        </Stage>
-        <div
-          style={{
-            position: 'absolute',
-            top: '16px',
-            left: '16px',
-            padding: '0.6rem 0.9rem',
-            borderRadius: '12px',
-            background: 'rgba(11, 8, 22, 0.65)',
-            border: '1px solid rgba(255,255,255,0.07)',
-            fontSize: '0.85rem'
-          }}
-        >
-          拖拽平移 · 滚轮缩放
-        </div>
-      </div>
-      <LogsPanel />
+        <Graphics draw={drawBackground} />
+        <Container x={camera.x} y={camera.y}>
+          <Graphics draw={drawWalkable} />
+          <Graphics draw={drawBuildings} />
+          <Graphics draw={drawGrid} />
+          {data.buildings.map((building) => {
+            const [x, y, w, h] = building.rect;
+            const centerX = (x + w / 2) * tileSize;
+            const centerY = (y + h / 2) * tileSize;
+            return (
+              <Text
+                key={building.id}
+                text={building.label}
+                anchor={0.5}
+                x={centerX}
+                y={centerY}
+                style={buildingLabelStyle}
+              />
+            );
+          })}
+        </Container>
+      </Stage>
     </div>
   );
 }
