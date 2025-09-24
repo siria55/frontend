@@ -18,3 +18,4 @@ React/NextJS + PixiJS
 ## 要点
 
 - 主界面全在 PixiJS canvas 里
+- 尽量封装，组件化

@@ -2,13 +2,13 @@
   "id": "mars_outpost_min",
   "name": "火星前哨站 · 原型",
   "grid": {
-    "cols": 32,
-    "rows": 24,
+    "cols": 48,
+    "rows": 32,
     "tileSize": 1
   },
   "dimensions": {
-    "width": 32,
-    "height": 24
+    "width": 48,
+    "height": 32
   },
   "buildings": [
     {
@@ -36,14 +36,16 @@
     {
       "id": "ares-01",
       "label": "ARES-01",
-      "position": [15, 12],
-      "color": 11541703
+      "position": [18, 14],
+      "color": 11541703,
+      "behaviors": ["move_left", "move_right", "move_up", "move_down"]
     },
     {
       "id": "support-02",
       "label": "SUP-02",
-      "position": [18, 12],
-      "color": 11576490
+      "position": [22, 14],
+      "color": 11576490,
+      "behaviors": ["move_left", "move_right", "move_up", "move_down"]
     }
   ]
 }

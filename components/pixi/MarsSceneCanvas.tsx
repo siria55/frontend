@@ -28,7 +28,14 @@ type SceneDefinition = {
     label: string;
     position: [number, number];
     color?: number;
+    behaviors?: string[];
   }>;
+};
+
+type AgentBehavior = 'move_left' | 'move_right' | 'move_up' | 'move_down';
+type AgentCommandDetail = {
+  agentId: string;
+  behavior: AgentBehavior;
 };
 
 const data = sceneData as SceneDefinition;
@@ -129,6 +136,12 @@ export default function MarsSceneCanvas() {
   );
 
   const [isDragging, setIsDragging] = useState(false);
+
+  const wrapCoord = useCallback((value: number, size: number) => {
+    if (size <= 0) return value;
+    const mod = value % size;
+    return mod >= 0 ? mod : mod + size;
+  }, []);
 
   const clearDragState = useCallback(() => {
     dragState.current = {
@@ -244,19 +257,19 @@ export default function MarsSceneCanvas() {
   const [agents, setAgents] = useState(initialAgents);
 
   useEffect(() => {
-    const speed = 0.2;
+    const speed = 0.22;
     const keyState: Record<string, boolean> = {};
 
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
-      if (![ 'w', 'a', 's', 'd' ].includes(key)) return;
+      if (!['w', 'a', 's', 'd'].includes(key)) return;
       keyState[key] = true;
       event.preventDefault();
     };
 
     const handleKeyUp = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
-      if (![ 'w', 'a', 's', 'd' ].includes(key)) return;
+      if (!['w', 'a', 's', 'd'].includes(key)) return;
       keyState[key] = false;
       event.preventDefault();
     };
@@ -264,30 +277,40 @@ export default function MarsSceneCanvas() {
     let animationFrame = 0;
 
     const update = () => {
-      const targetId = 'ares-01';
-      const hasInput = keyState.w || keyState.a || keyState.s || keyState.d;
-      if (hasInput) {
-        setAgents((prev) =>
-          prev.map((agent) => {
-            if (agent.id !== targetId) return agent;
-            const [x, y] = agent.position;
-            let nextX = x;
-            let nextY = y;
+      setAgents((prev) =>
+        prev.map((agent) => {
+          const persistent = new Set(agent.behaviors ?? []);
+          const isPlayer = agent.id === 'ares-01';
+
+          let nextX = agent.position[0];
+          let nextY = agent.position[1];
+
+          // 按键即时移动（不影响持久行为）
+          if (isPlayer) {
             if (keyState.w) nextY -= speed;
             if (keyState.s) nextY += speed;
             if (keyState.a) nextX -= speed;
             if (keyState.d) nextX += speed;
+          }
 
-            const clampedX = Math.min(Math.max(nextX, 0), cols - 1);
-            const clampedY = Math.min(Math.max(nextY, 0), rows - 1);
+          const commandStep = 0.12;
+          if (persistent.has('move_up')) nextY -= commandStep;
+          if (persistent.has('move_down')) nextY += commandStep;
+          if (persistent.has('move_left')) nextX -= commandStep;
+          if (persistent.has('move_right')) nextX += commandStep;
 
-            return {
-              ...agent,
-              position: [clampedX, clampedY] as [number, number]
-            };
-          })
-        );
-      }
+          if (!isPlayer && persistent.size === 0) {
+            return agent;
+          }
+
+          return {
+            ...agent,
+            behaviors: Array.from(persistent),
+            position: [wrapCoord(nextX, cols), wrapCoord(nextY, rows)] as [number, number]
+          };
+        })
+      );
+
       animationFrame = requestAnimationFrame(update);
     };
 
@@ -301,7 +324,31 @@ export default function MarsSceneCanvas() {
       window.removeEventListener('keyup', handleKeyUp);
       cancelAnimationFrame(animationFrame);
     };
-  }, [cols, rows]);
+  }, [cols, rows, wrapCoord]);
+
+  useEffect(() => {
+    const handleAgentCommand = (event: Event) => {
+      const custom = event as CustomEvent<AgentCommandDetail>;
+      const { agentId, behavior } = custom.detail ?? {};
+      if (!agentId || !behavior) return;
+
+      setAgents((prev) =>
+        prev.map((agent) => {
+          if (agent.id !== agentId) return agent;
+          const nextBehaviors: AgentBehavior[] = [behavior];
+          return {
+            ...agent,
+            behaviors: nextBehaviors
+          };
+        })
+      );
+    };
+
+    window.addEventListener('mars-agent-command', handleAgentCommand as EventListener);
+    return () => {
+      window.removeEventListener('mars-agent-command', handleAgentCommand as EventListener);
+    };
+  }, []);
 
   const agentElements = useMemo(() =>
     agents.map((agent) => {
