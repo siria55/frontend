@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <main style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '4rem 6rem', maxWidth: '960px' }}>
       <header>
-        <h1 style={{ margin: 0, fontSize: '2.5rem' }}>EEO 场景集成原型</h1>
+        <h1 style={{ margin: 0, fontSize: '2.5rem' }}>场景集成原型</h1>
         <p style={{ color: '#b0b0c3' }}>使用 Next.js + PixiJS 搭建的交互演示入口。</p>
       </header>
       <section style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

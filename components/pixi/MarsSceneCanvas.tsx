@@ -16,7 +16,7 @@ import sceneData from '@/assets/scenes/mars_outpost.json';
 
 type SceneDefinition = {
   grid: { cols: number; rows: number };
-  walkable: number[][];
+  dimensions: { width: number; height: number };
   buildings: Array<{
     id: string;
     label: string;
@@ -27,10 +27,7 @@ type SceneDefinition = {
 const data = sceneData as SceneDefinition;
 
 const BACKGROUND_COLOR = 0x120b1c;
-const WALKABLE_COLOR = 0x1f2636;
-const BLOCKED_COLOR = 0x0d0a13;
 const BUILDING_COLOR = 0xea885a;
-const BUILDING_BORDER = 0xffc99b;
 const GRID_COLOR = 0x2a1f36;
 
 const buildingLabelStyle = new TextStyle({
@@ -59,8 +56,8 @@ const useViewportSize = () => {
 
 export default function MarsSceneCanvas() {
   const { width, height } = useViewportSize();
-  const cols = data.grid.cols;
-  const rows = data.grid.rows;
+  const rows = data.dimensions.height;
+  const cols = data.dimensions.width;
 
   const tileSize = useMemo(() => {
     const tentative = Math.floor(Math.min(width / cols, height / rows));
@@ -125,32 +122,6 @@ export default function MarsSceneCanvas() {
 
   const [isDragging, setIsDragging] = useState(false);
 
-  const handlePointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      event.currentTarget.setPointerCapture(event.pointerId);
-      dragState.current = {
-        active: true,
-        pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY,
-        originX: cameraRef.current.x,
-        originY: cameraRef.current.y
-      };
-      setIsDragging(true);
-    },
-    []
-  );
-
-  const handlePointerMove = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (!dragState.current.active) return;
-      const dx = event.clientX - dragState.current.startX;
-      const dy = event.clientY - dragState.current.startY;
-      setCameraClamped(dragState.current.originX + dx, dragState.current.originY + dy);
-    },
-    [setCameraClamped]
-  );
-
   const clearDragState = useCallback(() => {
     dragState.current = {
       active: false,
@@ -162,6 +133,45 @@ export default function MarsSceneCanvas() {
     };
     setIsDragging(false);
   }, []);
+
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const localX = event.clientX - rect.left;
+      const localY = event.clientY - rect.top;
+      const mapX = (localX - cameraRef.current.x) / tileSize;
+      const mapY = (localY - cameraRef.current.y) / tileSize;
+
+      const insideMap = mapX >= 0 && mapX <= cols && mapY >= 0 && mapY <= rows;
+
+      if (insideMap) {
+        clearDragState();
+        return;
+      }
+
+      event.currentTarget.setPointerCapture(event.pointerId);
+      dragState.current = {
+        active: true,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        originX: cameraRef.current.x,
+        originY: cameraRef.current.y
+      };
+      setIsDragging(true);
+    },
+    [clearDragState, cols, rows, tileSize]
+  );
+
+  const handlePointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!dragState.current.active) return;
+      const dx = event.clientX - dragState.current.startX;
+      const dy = event.clientY - dragState.current.startY;
+      setCameraClamped(dragState.current.originX + dx, dragState.current.originY + dy);
+    },
+    [setCameraClamped]
+  );
 
   const handlePointerUp = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -183,40 +193,8 @@ export default function MarsSceneCanvas() {
       g.beginFill(BACKGROUND_COLOR);
       g.drawRect(0, 0, width, height);
       g.endFill();
-
-      const spacing = tileSize;
-      if (spacing <= 0) return;
-      const offsetX = ((camera.x % spacing) + spacing) % spacing;
-      const offsetY = ((camera.y % spacing) + spacing) % spacing;
-
-      g.lineStyle(1, GRID_COLOR, 0.25);
-      for (let x = -spacing; x <= width + spacing; x += spacing) {
-        const px = x - offsetX;
-        g.moveTo(px, 0);
-        g.lineTo(px, height);
-      }
-      for (let y = -spacing; y <= height + spacing; y += spacing) {
-        const py = y - offsetY;
-        g.moveTo(0, py);
-        g.lineTo(width, py);
-      }
     },
-    [camera.x, camera.y, height, tileSize, width]
-  );
-
-  const drawWalkable = useCallback(
-    (g: PixiGraphics) => {
-      g.clear();
-      for (let y = 0; y < rows; y += 1) {
-        for (let x = 0; x < cols; x += 1) {
-          const color = data.walkable[y]?.[x] === 1 ? WALKABLE_COLOR : BLOCKED_COLOR;
-          g.beginFill(color);
-          g.drawRect(x * tileSize, y * tileSize, tileSize, tileSize);
-          g.endFill();
-        }
-      }
-    },
-    [cols, rows, tileSize]
+    [height, width]
   );
 
   const drawGrid = useCallback(
@@ -246,12 +224,9 @@ export default function MarsSceneCanvas() {
         const py = y * tileSize;
         const bw = w * tileSize;
         const bh = h * tileSize;
-        g.beginFill(BUILDING_COLOR, 0.85);
-        g.drawRoundedRect(px, py, bw, bh, 6);
+        g.beginFill(BUILDING_COLOR, 0.9);
+        g.drawRoundedRect(px, py, bw, bh, 10);
         g.endFill();
-        g.lineStyle(2, BUILDING_BORDER, 0.9);
-        g.drawRoundedRect(px, py, bw, bh, 6);
-        g.lineStyle(0);
       });
     },
     [tileSize]
@@ -279,9 +254,8 @@ export default function MarsSceneCanvas() {
       >
         <Graphics draw={drawBackground} />
         <Container x={camera.x} y={camera.y}>
-          <Graphics draw={drawWalkable} />
-          <Graphics draw={drawBuildings} />
           <Graphics draw={drawGrid} />
+          <Graphics draw={drawBuildings} />
           {data.buildings.map((building) => {
             const [x, y, w, h] = building.rect;
             const centerX = (x + w / 2) * tileSize;
