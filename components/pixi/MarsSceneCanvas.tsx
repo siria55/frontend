@@ -16,7 +16,9 @@ import { TextStyle } from 'pixi.js';
 import sceneData from '@/assets/scenes/mars_outpost.json';
 
 type SceneDefinition = {
-  grid: { cols: number; rows: number };
+  id: string;
+  name: string;
+  grid: { cols: number; rows: number; tileSize?: number };
   dimensions: { width: number; height: number };
   buildings: Array<{
     id: string;
@@ -32,13 +34,38 @@ type SceneDefinition = {
   }>;
 };
 
+const ensureRect = (rect: number[]): [number, number, number, number] => {
+  if (rect.length !== 4) {
+    throw new Error('Mars 场景建筑矩形应包含 4 个元素');
+  }
+  return [rect[0], rect[1], rect[2], rect[3]];
+};
+
+const ensurePosition = (position: number[]): [number, number] => {
+  if (position.length !== 2) {
+    throw new Error('Mars 场景 Agent 坐标应包含 2 个元素');
+  }
+  return [position[0], position[1]];
+};
+
 type AgentBehavior = 'move_left' | 'move_right' | 'move_up' | 'move_down';
 type AgentCommandDetail = {
   agentId: string;
   behavior: AgentBehavior;
 };
 
-const data = sceneData as SceneDefinition;
+const data: SceneDefinition = {
+  ...sceneData,
+  buildings: sceneData.buildings.map((building) => ({
+    ...building,
+    rect: ensureRect(building.rect)
+  })),
+  agents: sceneData.agents?.map((agent) => ({
+    ...agent,
+    position: ensurePosition(agent.position),
+    behaviors: agent.behaviors ?? []
+  }))
+};
 
 const BACKGROUND_COLOR = 0x120b1c;
 const BUILDING_COLOR = 0xd7dce4;
