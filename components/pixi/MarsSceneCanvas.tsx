@@ -41,9 +41,10 @@ type AgentCommandDetail = {
 const data = sceneData as SceneDefinition;
 
 const BACKGROUND_COLOR = 0x120b1c;
-const BUILDING_COLOR = 0xea885a;
+const BUILDING_COLOR = 0xd7dce4;
 const GRID_COLOR = 0x2a1f36;
 const DEFAULT_AGENT_COLOR = 0x7b9bff;
+const TERRAIN_COLOR = 0xc86f32;
 
 const buildingLabelStyle = new TextStyle({
   fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
@@ -216,6 +217,16 @@ export default function MarsSceneCanvas() {
       g.endFill();
     },
     [height, width]
+  );
+
+  const drawTerrain = useCallback(
+    (g: PixiGraphics) => {
+      g.clear();
+      g.beginFill(TERRAIN_COLOR);
+      g.drawRect(0, 0, mapWidth, mapHeight);
+      g.endFill();
+    },
+    [mapHeight, mapWidth]
   );
 
   const drawGrid = useCallback(
@@ -408,6 +419,7 @@ export default function MarsSceneCanvas() {
       >
         <Graphics draw={drawBackground} />
         <Container x={camera.x} y={camera.y}>
+          <Graphics draw={drawTerrain} />
           <Graphics draw={drawGrid} />
           <Graphics draw={drawBuildings} />
           {data.buildings.map((building) => {
