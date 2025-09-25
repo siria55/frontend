@@ -33,6 +33,7 @@ type SceneDefinition = {
     behaviors?: string[];
     perception?: string[];
     planning?: string[];
+    tools?: string[];
   }>;
 };
 
