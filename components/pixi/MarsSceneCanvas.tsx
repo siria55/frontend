@@ -13,52 +13,20 @@ import type { Application, Graphics as PixiGraphics } from 'pixi.js';
 import { TextStyle } from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
 
-import sceneData from '@/assets/scenes/mars_outpost.json';
-
-type SceneDefinition = {
-  id: string;
-  name: string;
-  grid: { cols: number; rows: number; tileSize?: number };
-  dimensions: { width: number; height: number };
-  buildings: Array<{
-    id: string;
-    label: string;
-    rect: [number, number, number, number];
-    energy?: {
-      type: 'storage' | 'consumer';
-      capacity?: number;
-      current?: number;
-      output?: number;
-      rate?: number;
-    };
-  }>;
-  agents?: Array<{
-    id: string;
-    label: string;
-    position: [number, number];
-    color?: number;
-    behaviors?: string[];
-  }>;
-};
-
-const ensureRect = (rect: number[]): [number, number, number, number] => {
-  if (rect.length !== 4) {
-    throw new Error('Mars 场景建筑矩形应包含 4 个元素');
-  }
-  return [rect[0], rect[1], rect[2], rect[3]];
-};
-
-const ensurePosition = (position: number[]): [number, number] => {
-  if (position.length !== 2) {
-    throw new Error('Mars 场景 Agent 坐标应包含 2 个元素');
-  }
-  return [position[0], position[1]];
-};
+import type { SceneDefinition, SceneBuilding, SceneAgent } from '@/types/scene';
 
 type AgentBehavior = 'move_left' | 'move_right' | 'move_up' | 'move_down';
 type AgentCommandDetail = {
   agentId: string;
   behavior: AgentBehavior;
+};
+
+type AgentState = {
+  id: string;
+  label: string;
+  position: [number, number];
+  color?: number;
+  behaviors: AgentBehavior[];
 };
 
 type ViewportInternalProps = {
@@ -74,6 +42,39 @@ type ViewportInternalProps = {
 
 type ViewportProps = Omit<ViewportInternalProps, 'app'> & {
   children?: ReactNode;
+};
+
+type MarsSceneCanvasProps = {
+  scene: SceneDefinition;
+  zoom?: number;
+};
+
+const BACKGROUND_COLOR = 0x120b1c;
+const BUILDING_COLOR = 0xd7dce4;
+const GRID_COLOR = 0x2a1f36;
+const DEFAULT_AGENT_COLOR = 0x7b9bff;
+const TERRAIN_COLOR = 0xc86f32;
+
+const buildingLabelStyle = new TextStyle({
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  fontSize: 14,
+  fontWeight: '600',
+  fill: '#1a0c1c',
+  align: 'center'
+});
+
+const ensureRect = (rect: number[]): [number, number, number, number] => {
+  if (rect.length !== 4) {
+    throw new Error('Mars 场景建筑矩形应包含 4 个元素');
+  }
+  return [rect[0], rect[1], rect[2], rect[3]];
+};
+
+const ensurePosition = (position: number[]): [number, number] => {
+  if (position.length !== 2) {
+    throw new Error('Mars 场景 Agent 坐标应包含 2 个元素');
+  }
+  return [position[0], position[1]];
 };
 
 const PixiViewportComponent = PixiComponent<ViewportInternalProps>('PixiViewport', {
@@ -128,37 +129,6 @@ const ViewportLayer = ({ children, ...props }: ViewportProps) => {
   return <PixiViewportComponent {...props} app={app}>{children}</PixiViewportComponent>;
 };
 
-const data: SceneDefinition = {
-  ...sceneData,
-  buildings: sceneData.buildings.map((building) => ({
-    ...building,
-    rect: ensureRect(building.rect)
-  })),
-  agents: sceneData.agents?.map((agent) => ({
-    ...agent,
-    position: ensurePosition(agent.position),
-    behaviors: agent.behaviors ?? []
-  }))
-};
-
-const BACKGROUND_COLOR = 0x120b1c;
-const BUILDING_COLOR = 0xd7dce4;
-const GRID_COLOR = 0x2a1f36;
-const DEFAULT_AGENT_COLOR = 0x7b9bff;
-const TERRAIN_COLOR = 0xc86f32;
-
-const buildingLabelStyle = new TextStyle({
-  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  fontSize: 14,
-  fontWeight: '600',
-  fill: '#1a0c1c',
-  align: 'center'
-});
-
-type MarsSceneCanvasProps = {
-  zoom?: number;
-};
-
 const useViewportSize = () => {
   const [size, setSize] = useState({ width: 1280, height: 720 });
 
@@ -175,15 +145,37 @@ const useViewportSize = () => {
   return size;
 };
 
-export default function MarsSceneCanvas({ zoom }: MarsSceneCanvasProps) {
+export default function MarsSceneCanvas({ scene, zoom }: MarsSceneCanvasProps) {
   const { width, height } = useViewportSize();
-  const rows = data.dimensions.height;
-  const cols = data.dimensions.width;
+
+  const buildings: SceneBuilding[] = useMemo(
+    () => scene.buildings.map((building) => ({ ...building, rect: ensureRect(building.rect) })),
+    [scene]
+  );
+
+  const initialAgents = useMemo<AgentState[]>(
+    () =>
+      (scene.agents ?? []).map((agent: SceneAgent) => ({
+        ...agent,
+        position: ensurePosition(agent.position),
+        behaviors: (agent.behaviors as AgentBehavior[] | undefined) ?? []
+      })),
+    [scene]
+  );
+
+  const [agents, setAgents] = useState<AgentState[]>(initialAgents);
+
+  useEffect(() => {
+    setAgents(initialAgents);
+  }, [initialAgents]);
+
+  const rows = scene.dimensions.height;
+  const cols = scene.dimensions.width;
 
   const tileSize = useMemo(() => {
     const tentative = Math.floor(Math.min(width / cols, height / rows));
-    return Math.max(tentative, 12);
-  }, [cols, height, rows, width]);
+    return Math.max(tentative, scene.grid.tileSize ?? 12);
+  }, [cols, height, rows, width, scene.grid.tileSize]);
 
   const mapWidth = cols * tileSize;
   const mapHeight = rows * tileSize;
@@ -235,7 +227,7 @@ export default function MarsSceneCanvas({ zoom }: MarsSceneCanvasProps) {
   const drawBuildings = useCallback(
     (g: PixiGraphics) => {
       g.clear();
-      data.buildings.forEach((building) => {
+      buildings.forEach((building) => {
         const [x, y, w, h] = building.rect;
         const px = x * tileSize;
         const py = y * tileSize;
@@ -246,11 +238,8 @@ export default function MarsSceneCanvas({ zoom }: MarsSceneCanvasProps) {
         g.endFill();
       });
     },
-    [tileSize]
+    [buildings, tileSize]
   );
-
-  const initialAgents = useMemo(() => data.agents ?? [], []);
-  const [agents, setAgents] = useState(initialAgents);
 
   useEffect(() => {
     const speed = 0.22;
@@ -421,7 +410,7 @@ export default function MarsSceneCanvas({ zoom }: MarsSceneCanvasProps) {
           <Graphics draw={drawTerrain} />
           <Graphics draw={drawGrid} />
           <Graphics draw={drawBuildings} />
-          {data.buildings.map((building) => {
+          {buildings.map((building) => {
             const [x, y, w, h] = building.rect;
             const centerX = (x + w / 2) * tileSize;
             const centerY = (y + h / 2) * tileSize;

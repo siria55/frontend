@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 
-interface EnergyInfo {
+export interface EnergyInfo {
   id: string;
   label: string;
   type: 'storage' | 'consumer';

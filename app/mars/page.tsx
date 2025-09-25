@@ -1,16 +1,23 @@
 'use client';
 
 import { useCallback, useMemo, useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 
 import CommandConsole from '@/components/CommandConsole';
 import AgentControlPad from '@/components/AgentControlPad';
-import EnergyStatus from '@/components/EnergyStatus';
-import MarsSceneCanvas from '@/components/pixi/MarsSceneCanvas';
-import sceneData from '@/assets/scenes/mars_outpost.json';
+import EnergyStatus, { EnergyInfo } from '@/components/EnergyStatus';
 import ViewportZoomControl from '@/components/ViewportZoomControl';
+import type { SceneDefinition } from '@/types/scene';
+
+const MarsSceneCanvas = dynamic(() => import('@/components/pixi/MarsSceneCanvas'), {
+  ssr: false
+});
 
 export default function MarsPage() {
   const [viewportZoom, setViewportZoom] = useState(0.6);
+  const [scene, setScene] = useState<SceneDefinition | null>(null);
+  const [sceneError, setSceneError] = useState<string | null>(null);
+  const [sceneLoading, setSceneLoading] = useState(true);
 
   const dispatchAgentBehavior = useCallback((agentId: string, behavior: string) => {
     const event = new CustomEvent('mars-agent-command', {
@@ -42,8 +49,9 @@ export default function MarsPage() {
     [dispatchAgentBehavior]
   );
 
-  const initialEnergyItems = useMemo(() => {
-    return (sceneData.buildings ?? [])
+  const buildEnergyItems = useCallback((sceneDef: SceneDefinition | null): EnergyInfo[] => {
+    if (!sceneDef) return [];
+    return (sceneDef.buildings ?? [])
       .filter((building) => building.energy)
       .map((building) => ({
         id: building.id,
@@ -56,7 +64,34 @@ export default function MarsPage() {
       }));
   }, []);
 
-  const [energyItems, setEnergyItems] = useState(initialEnergyItems);
+  const [energyItems, setEnergyItems] = useState<EnergyInfo[]>([]);
+
+  const backendBaseUrl = (process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, '');
+  const sceneEndpoint = `${backendBaseUrl}/v1/game/scene`;
+
+  const fetchScene = useCallback(async () => {
+    setSceneLoading(true);
+    setSceneError(null);
+    try {
+      const response = await fetch(sceneEndpoint);
+      if (!response.ok) {
+        throw new Error(`failed to load scene: ${response.status}`);
+      }
+      const payload: SceneDefinition = await response.json();
+      setScene(payload);
+      setEnergyItems(buildEnergyItems(payload));
+    } catch (error) {
+      setSceneError(error instanceof Error ? error.message : 'unknown error');
+      setScene(null);
+      setEnergyItems([]);
+    } finally {
+      setSceneLoading(false);
+    }
+  }, [buildEnergyItems, sceneEndpoint]);
+
+  useEffect(() => {
+    fetchScene();
+  }, [fetchScene]);
 
   useEffect(() => {
     const tickMs = 1000;
@@ -112,7 +147,22 @@ export default function MarsPage() {
           height: '100vh'
         }}
       >
-        <MarsSceneCanvas zoom={viewportZoom} />
+        {scene ? (
+          <MarsSceneCanvas scene={scene} zoom={viewportZoom} />
+        ) : (
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#b4b6d2'
+            }}
+          >
+            {sceneLoading ? '加载火星场景中…' : sceneError ? `场景加载失败：${sceneError}` : '暂无场景数据'}
+          </div>
+        )}
         <div
           style={{
             position: 'absolute',
