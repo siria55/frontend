@@ -5,9 +5,7 @@ interface AgentControlPadProps {
 }
 
 const panelStyle: React.CSSProperties = {
-  position: 'absolute',
-  top: '24px',
-  left: '330px',
+  position: 'relative',
   padding: '1rem',
   borderRadius: '12px',
   background: 'rgba(12, 10, 20, 0.72)',

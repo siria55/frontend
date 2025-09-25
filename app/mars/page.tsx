@@ -47,8 +47,22 @@ export default function MarsPage() {
         }}
       >
         <MarsSceneCanvas />
-        <CommandConsole onCommand={handleConsoleCommand} />
-        <AgentControlPad agentId="ares-01" />
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            bottom: '32px',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            gap: '1rem',
+            alignItems: 'flex-end',
+            flexWrap: 'wrap',
+            justifyContent: 'center'
+          }}
+        >
+          <CommandConsole onCommand={handleConsoleCommand} />
+          <AgentControlPad agentId="ares-01" />
+        </div>
       </div>
     </main>
   );
