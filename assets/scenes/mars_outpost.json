@@ -38,41 +38,14 @@
       "label": "阿瑞斯-01 指挥体",
       "position": [18, 14],
       "color": 11541703,
-      "behaviors": ["move_left", "move_right", "move_up", "move_down"],
-      "perception": [
-        "复合光谱雷达：识别温度、湿度及矿物浓度差异",
-        "环形声纳与风向标：预测沙尘暴强度",
-        "地貌拓扑缓存：维护 64×64 网格高度与障碍信息"
-      ],
-      "planning": [
-        "多目标路径队列：巡逻/检修/救援动态再规划",
-        "安全半径算法：避开未加固区域",
-        "联动协议：向支援单位广播编队指令"
-      ],
-      "tools": [
-        "岩芯钻具：执行深度挖掘采样",
-        "太阳能翼：为移动基地充电",
-        "环境微型无人机：远距离勘测"
-      ]
+      "behaviors": ["move_left", "move_right", "move_up", "move_down"]
     },
     {
       "id": "support-02",
       "label": "支援单位-02",
       "position": [22, 14],
       "color": 11576490,
-      "behaviors": ["move_left", "move_right", "move_up", "move_down"],
-      "perception": [
-        "近距红外摄像头：检测设备损耗",
-        "地磁感应模块：校准行进方向"
-      ],
-      "planning": [
-        "任务跟随协议：保持与指挥体固定距离",
-        "维护优先队列：根据能耗与部件状态排序"
-      ],
-      "tools": [
-        "模块化维修臂：执行现场修复",
-        "蓄电背包：为阵列节点补能"
-      ]
+      "behaviors": ["move_left", "move_right", "move_up", "move_down"]
     }
   ]
 }

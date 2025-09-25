@@ -31,9 +31,6 @@ type SceneDefinition = {
     position: [number, number];
     color?: number;
     behaviors?: string[];
-    perception?: string[];
-    planning?: string[];
-    tools?: string[];
   }>;
 };
 
