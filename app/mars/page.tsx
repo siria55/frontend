@@ -7,8 +7,11 @@ import AgentControlPad from '@/components/AgentControlPad';
 import EnergyStatus from '@/components/EnergyStatus';
 import MarsSceneCanvas from '@/components/pixi/MarsSceneCanvas';
 import sceneData from '@/assets/scenes/mars_outpost.json';
+import ViewportZoomControl from '@/components/ViewportZoomControl';
 
 export default function MarsPage() {
+  const [viewportZoom, setViewportZoom] = useState(0.6);
+
   const dispatchAgentBehavior = useCallback((agentId: string, behavior: string) => {
     const event = new CustomEvent('mars-agent-command', {
       detail: { agentId, behavior }
@@ -96,6 +99,10 @@ export default function MarsPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const handleZoomChange = useCallback((value: number) => {
+    setViewportZoom(value);
+  }, []);
+
   return (
     <main style={{ minHeight: '100vh', margin: 0, padding: 0 }}>
       <div
@@ -105,17 +112,20 @@ export default function MarsPage() {
           height: '100vh'
         }}
       >
-        <MarsSceneCanvas />
+        <MarsSceneCanvas zoom={viewportZoom} />
         <div
           style={{
             position: 'absolute',
             left: '32px',
             top: '50%',
             transform: 'translateY(-50%)',
-            display: 'flex'
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem'
           }}
         >
           <EnergyStatus items={energyItems} />
+          <ViewportZoomControl value={viewportZoom} onChange={handleZoomChange} />
         </div>
         <div
           style={{

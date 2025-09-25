@@ -69,6 +69,7 @@ type ViewportInternalProps = {
   worldHeight: number;
   minScale?: number;
   maxScale?: number;
+  scale?: number;
 };
 
 type ViewportProps = Omit<ViewportInternalProps, 'app'> & {
@@ -76,7 +77,7 @@ type ViewportProps = Omit<ViewportInternalProps, 'app'> & {
 };
 
 const PixiViewportComponent = PixiComponent<ViewportInternalProps>('PixiViewport', {
-  create: ({ app, width, height, worldWidth, worldHeight, minScale, maxScale }) => {
+  create: ({ app, width, height, worldWidth, worldHeight, minScale, maxScale, scale }) => {
     const viewport = new Viewport({
       screenWidth: width,
       screenHeight: height,
@@ -94,11 +95,13 @@ const PixiViewportComponent = PixiComponent<ViewportInternalProps>('PixiViewport
       .clamp({ direction: 'all' })
       .clampZoom({ minScale: minScale ?? 0.3, maxScale: maxScale ?? 3 });
 
+    const initialZoom = Math.max(minScale ?? 0.3, Math.min(scale ?? 1, maxScale ?? 3));
+    viewport.setZoom(initialZoom, true);
     viewport.moveCenter(worldWidth / 2, worldHeight / 2);
     return viewport;
   },
   applyProps: (instance, oldProps, newProps) => {
-    const { width, height, worldWidth, worldHeight, minScale, maxScale } = newProps;
+    const { width, height, worldWidth, worldHeight, minScale, maxScale, scale } = newProps;
     if (oldProps.width !== width || oldProps.height !== height) {
       instance.resize(width, height, worldWidth, worldHeight);
     }
@@ -109,6 +112,10 @@ const PixiViewportComponent = PixiComponent<ViewportInternalProps>('PixiViewport
     }
     if (oldProps.minScale !== minScale || oldProps.maxScale !== maxScale) {
       instance.clampZoom({ minScale: minScale ?? 0.3, maxScale: maxScale ?? 3 });
+    }
+    if (scale !== undefined && oldProps.scale !== scale) {
+      const clamped = Math.max(minScale ?? 0.3, Math.min(scale, maxScale ?? 3));
+      instance.setZoom(clamped, true);
     }
   },
   willUnmount: (instance) => {
@@ -148,6 +155,10 @@ const buildingLabelStyle = new TextStyle({
   align: 'center'
 });
 
+type MarsSceneCanvasProps = {
+  zoom?: number;
+};
+
 const useViewportSize = () => {
   const [size, setSize] = useState({ width: 1280, height: 720 });
 
@@ -164,7 +175,7 @@ const useViewportSize = () => {
   return size;
 };
 
-export default function MarsSceneCanvas() {
+export default function MarsSceneCanvas({ zoom }: MarsSceneCanvasProps) {
   const { width, height } = useViewportSize();
   const rows = data.dimensions.height;
   const cols = data.dimensions.width;
@@ -377,6 +388,11 @@ export default function MarsSceneCanvas() {
     return Math.max(Math.min(widthScale, heightScale), 0.12);
   }, [height, mapHeight, mapWidth, width]);
 
+  const clampedZoom = useMemo(() => {
+    const target = zoom ?? minScaleEstimate;
+    return Math.max(minScaleEstimate, Math.min(target, 3));
+  }, [minScaleEstimate, zoom]);
+
   return (
     <div
       style={{
@@ -400,6 +416,7 @@ export default function MarsSceneCanvas() {
           worldHeight={mapHeight}
           minScale={minScaleEstimate}
           maxScale={3}
+          scale={clampedZoom}
         >
           <Graphics draw={drawTerrain} />
           <Graphics draw={drawGrid} />
