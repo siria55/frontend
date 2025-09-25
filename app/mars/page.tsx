@@ -20,10 +20,10 @@ export default function MarsPage() {
       const compact = normalized.replace(/\s+/g, '');
 
       const behaviorTable = [
-        { behavior: 'move_left', keywords: ['left', '向左', '左移', '左转', '←'] },
-        { behavior: 'move_right', keywords: ['right', '向右', '右移', '右转', '→'] },
-        { behavior: 'move_up', keywords: ['up', '向上', '上移', '上升', '↑'] },
-        { behavior: 'move_down', keywords: ['down', '向下', '下移', '下降', '↓'] }
+        { behavior: 'move_left', keywords: ['left', '向左', '左移', '左转', '左', '←'] },
+        { behavior: 'move_right', keywords: ['right', '向右', '右移', '右转', '右', '→'] },
+        { behavior: 'move_up', keywords: ['up', '向上', '上移', '上升', '上', '↑'] },
+        { behavior: 'move_down', keywords: ['down', '向下', '下移', '下降', '下', '↓'] }
       ] as const;
 
       const match = behaviorTable.find((entry) =>
