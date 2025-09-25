@@ -57,7 +57,7 @@ export default function AgentControlPad({ agentId }: AgentControlPadProps) {
     <div style={panelStyle}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
         <span style={{ fontSize: '0.85rem', color: '#b4b6d2' }}>运动控制</span>
-        <strong style={{ fontSize: '1.1rem', color: '#f4f4ff' }}>ARES 机动指令</strong>
+        <strong style={{ fontSize: '1.1rem', color: '#f4f4ff' }}>阿瑞斯 机动指令</strong>
       </div>
       <div style={rowsStyle}>
         {behaviors.map((item) => (

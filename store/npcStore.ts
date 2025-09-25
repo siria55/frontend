@@ -57,7 +57,7 @@ export const useNpcStore = create<NpcStore>((set, get) => ({
   npcs: [
     {
       id: 'ares-01',
-      name: 'ARES-01',
+      name: '阿瑞斯-01',
       color: 0xfff7cc,
       position: { x: 32, y: 30 },
       path: [],
@@ -75,7 +75,7 @@ export const useNpcStore = create<NpcStore>((set, get) => ({
     }
   ],
   waypoints: waypointLoop,
-  logs: [createLog('ARES-01 完成自检，开始巡逻。')],
+  logs: [createLog('阿瑞斯-01 完成自检，开始巡逻。')],
   tick(delta: number, planPath: PathPlanner) {
     if (!planPath) return;
     const producedLogs: LogEntry[] = [];
