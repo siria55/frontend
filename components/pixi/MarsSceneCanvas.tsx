@@ -5,13 +5,13 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
-  useRef,
   useState
 } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
-import { Container, Graphics, Stage, Text } from '@pixi/react';
-import type { Graphics as PixiGraphics } from 'pixi.js';
+import type { ReactNode } from 'react';
+import { Container, Graphics, PixiComponent, Stage, Text, useApp } from '@pixi/react';
+import type { Application, Graphics as PixiGraphics } from 'pixi.js';
 import { TextStyle } from 'pixi.js';
+import { Viewport } from 'pixi-viewport';
 
 import sceneData from '@/assets/scenes/mars_outpost.json';
 
@@ -59,6 +59,66 @@ type AgentBehavior = 'move_left' | 'move_right' | 'move_up' | 'move_down';
 type AgentCommandDetail = {
   agentId: string;
   behavior: AgentBehavior;
+};
+
+type ViewportInternalProps = {
+  app: Application;
+  width: number;
+  height: number;
+  worldWidth: number;
+  worldHeight: number;
+  minScale?: number;
+  maxScale?: number;
+};
+
+type ViewportProps = Omit<ViewportInternalProps, 'app'> & {
+  children?: ReactNode;
+};
+
+const PixiViewportComponent = PixiComponent<ViewportInternalProps>('PixiViewport', {
+  create: ({ app, width, height, worldWidth, worldHeight, minScale, maxScale }) => {
+    const viewport = new Viewport({
+      screenWidth: width,
+      screenHeight: height,
+      worldWidth,
+      worldHeight,
+      events: app.renderer.events,
+      ticker: app.ticker
+    });
+
+    viewport
+      .drag()
+      .pinch()
+      .wheel()
+      .decelerate()
+      .clamp({ direction: 'all' })
+      .clampZoom({ minScale: minScale ?? 0.3, maxScale: maxScale ?? 3 });
+
+    viewport.moveCenter(worldWidth / 2, worldHeight / 2);
+    return viewport;
+  },
+  applyProps: (instance, oldProps, newProps) => {
+    const { width, height, worldWidth, worldHeight, minScale, maxScale } = newProps;
+    if (oldProps.width !== width || oldProps.height !== height) {
+      instance.resize(width, height, worldWidth, worldHeight);
+    }
+    if (oldProps.worldWidth !== worldWidth || oldProps.worldHeight !== worldHeight) {
+      instance.worldWidth = worldWidth;
+      instance.worldHeight = worldHeight;
+      instance.clamp({ direction: 'all' });
+    }
+    if (oldProps.minScale !== minScale || oldProps.maxScale !== maxScale) {
+      instance.clampZoom({ minScale: minScale ?? 0.3, maxScale: maxScale ?? 3 });
+    }
+  },
+  willUnmount: (instance) => {
+    instance.destroy({ children: true });
+  }
+});
+
+const ViewportLayer = ({ children, ...props }: ViewportProps) => {
+  const app = useApp();
+  return <PixiViewportComponent {...props} app={app}>{children}</PixiViewportComponent>;
 };
 
 const data: SceneDefinition = {
@@ -117,131 +177,11 @@ export default function MarsSceneCanvas() {
   const mapWidth = cols * tileSize;
   const mapHeight = rows * tileSize;
 
-  const clampAxis = useCallback((value: number, available: number) => {
-    if (available === 0) return 0;
-    const min = available < 0 ? available : 0;
-    const max = available > 0 ? available : 0;
-    if (min === max) return min;
-    return Math.min(Math.max(value, min), max);
-  }, []);
-
-  const clampCamera = useCallback(
-    (x: number, y: number) => {
-      const availableX = width - mapWidth;
-      const availableY = height - mapHeight;
-      return {
-        x: clampAxis(x, availableX),
-        y: clampAxis(y, availableY)
-      };
-    },
-    [clampAxis, height, mapHeight, mapWidth, width]
-  );
-
-  const cameraRef = useRef({ x: 0, y: 0 });
-  const dragState = useRef({
-    active: false,
-    pointerId: -1,
-    startX: 0,
-    startY: 0,
-    originX: 0,
-    originY: 0
-  });
-
-  const [camera, setCamera] = useState(() => clampCamera(0, 0));
-  cameraRef.current = camera;
-
-  useLayoutEffect(() => {
-    const availableX = width - mapWidth;
-    const availableY = height - mapHeight;
-    const target = clampCamera(availableX / 2, availableY / 2);
-    setCamera((prev) => {
-      if (dragState.current.active) {
-        return clampCamera(prev.x, prev.y);
-      }
-      return target;
-    });
-  }, [clampCamera, height, mapHeight, mapWidth, width]);
-
-  const setCameraClamped = useCallback(
-    (nextX: number, nextY: number) => {
-      const next = clampCamera(nextX, nextY);
-      setCamera(next);
-    },
-    [clampCamera]
-  );
-
-  const [isDragging, setIsDragging] = useState(false);
-
   const wrapCoord = useCallback((value: number, size: number) => {
     if (size <= 0) return value;
     const mod = value % size;
     return mod >= 0 ? mod : mod + size;
   }, []);
-
-  const clearDragState = useCallback(() => {
-    dragState.current = {
-      active: false,
-      pointerId: -1,
-      startX: 0,
-      startY: 0,
-      originX: 0,
-      originY: 0
-    };
-    setIsDragging(false);
-  }, []);
-
-  const handlePointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      const rect = event.currentTarget.getBoundingClientRect();
-      const localX = event.clientX - rect.left;
-      const localY = event.clientY - rect.top;
-      const mapX = (localX - cameraRef.current.x) / tileSize;
-      const mapY = (localY - cameraRef.current.y) / tileSize;
-
-      const insideMap = mapX >= 0 && mapX <= cols && mapY >= 0 && mapY <= rows;
-
-      if (insideMap) {
-        clearDragState();
-        return;
-      }
-
-      event.currentTarget.setPointerCapture(event.pointerId);
-      dragState.current = {
-        active: true,
-        pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY,
-        originX: cameraRef.current.x,
-        originY: cameraRef.current.y
-      };
-      setIsDragging(true);
-    },
-    [clearDragState, cols, rows, tileSize]
-  );
-
-  const handlePointerMove = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (!dragState.current.active) return;
-      const dx = event.clientX - dragState.current.startX;
-      const dy = event.clientY - dragState.current.startY;
-      setCameraClamped(dragState.current.originX + dx, dragState.current.originY + dy);
-    },
-    [setCameraClamped]
-  );
-
-  const handlePointerUp = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (dragState.current.pointerId !== -1) {
-        event.currentTarget.releasePointerCapture(dragState.current.pointerId);
-      }
-      clearDragState();
-    },
-    [clearDragState]
-  );
-
-  const handlePointerLeave = useCallback(() => {
-    clearDragState();
-  }, [clearDragState]);
 
   const drawBackground = useCallback(
     (g: PixiGraphics) => {
@@ -330,7 +270,6 @@ export default function MarsSceneCanvas() {
           let nextX = agent.position[0];
           let nextY = agent.position[1];
 
-          // 按键即时移动（不影响持久行为）
           if (isPlayer) {
             if (keyState.w) nextY -= speed;
             if (keyState.s) nextY += speed;
@@ -395,54 +334,56 @@ export default function MarsSceneCanvas() {
     };
   }, []);
 
-  const agentElements = useMemo(() =>
-    agents.map((agent) => {
-      const [ax, ay] = agent.position;
-      const color = agent.color ?? DEFAULT_AGENT_COLOR;
-      const x = ax * tileSize;
-      const y = ay * tileSize;
-      return (
-        <Container key={agent.id} x={x} y={y}>
-          <Graphics
-            draw={(g) => {
-              g.clear();
-              g.beginFill(color, 0.95);
-              g.drawRect(0, 0, tileSize, tileSize);
-              g.endFill();
-            }}
-          />
-          <Text
-            text={agent.label}
-            anchor={{ x: 0.5, y: 0 }}
-            x={tileSize / 2}
-            y={tileSize + 4}
-            style={new TextStyle({
-              fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-              fontSize: Math.max(tileSize * 0.4, 10),
-              fill: '#f5f5ff',
-              dropShadow: true,
-              dropShadowDistance: 1,
-              dropShadowColor: '#0d0d1c'
-            })}
-          />
-        </Container>
-      );
-    }),
-  [agents, tileSize]
+  const agentElements = useMemo(
+    () =>
+      agents.map((agent) => {
+        const [ax, ay] = agent.position;
+        const color = agent.color ?? DEFAULT_AGENT_COLOR;
+        const x = ax * tileSize;
+        const y = ay * tileSize;
+        return (
+          <Container key={agent.id} x={x} y={y}>
+            <Graphics
+              draw={(g) => {
+                g.clear();
+                g.beginFill(color, 0.95);
+                g.drawRect(0, 0, tileSize, tileSize);
+                g.endFill();
+              }}
+            />
+            <Text
+              text={agent.label}
+              anchor={{ x: 0.5, y: 0 }}
+              x={tileSize / 2}
+              y={tileSize + 4}
+              style={new TextStyle({
+                fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+                fontSize: Math.max(tileSize * 0.4, 10),
+                fill: '#f5f5ff',
+                dropShadow: true,
+                dropShadowDistance: 1,
+                dropShadowColor: '#0d0d1c'
+              })}
+            />
+          </Container>
+        );
+      }),
+    [agents, tileSize]
   );
+
+  const minScaleEstimate = useMemo(() => {
+    const widthScale = width / mapWidth;
+    const heightScale = height / mapHeight;
+    return Math.max(Math.min(widthScale, heightScale), 0.12);
+  }, [height, mapHeight, mapWidth, width]);
 
   return (
     <div
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerLeave}
       style={{
         width: '100vw',
         height: '100vh',
         overflow: 'hidden',
-        background: 'radial-gradient(circle at top, rgba(227, 93, 54, 0.18), transparent 60%), rgba(9,6,20,0.95)',
-        cursor: isDragging ? 'grabbing' : 'grab'
+        background: 'radial-gradient(circle at top, rgba(227, 93, 54, 0.18), transparent 60%), rgba(9,6,20,0.95)'
       }}
     >
       <Stage
@@ -452,7 +393,14 @@ export default function MarsSceneCanvas() {
         style={{ width: '100%', height: '100%' }}
       >
         <Graphics draw={drawBackground} />
-        <Container x={camera.x} y={camera.y}>
+        <ViewportLayer
+          width={width}
+          height={height}
+          worldWidth={mapWidth}
+          worldHeight={mapHeight}
+          minScale={minScaleEstimate}
+          maxScale={3}
+        >
           <Graphics draw={drawTerrain} />
           <Graphics draw={drawGrid} />
           <Graphics draw={drawBuildings} />
@@ -472,7 +420,7 @@ export default function MarsSceneCanvas() {
             );
           })}
           {agentElements}
-        </Container>
+        </ViewportLayer>
       </Stage>
     </div>
   );
