@@ -14,22 +14,49 @@
     {
       "id": "central_dome",
       "label": "联合指挥穹顶",
-      "rect": [10, 6, 8, 6]
+      "rect": [10, 6, 8, 6],
+      "energy": {
+        "type": "consumer",
+        "rate": 160
+      }
     },
     {
       "id": "bio_lab",
       "label": "生物温室",
-      "rect": [4, 14, 6, 4]
+      "rect": [4, 14, 6, 4],
+      "energy": {
+        "type": "consumer",
+        "rate": 120
+      }
     },
     {
       "id": "hab_south",
       "label": "居住区",
-      "rect": [20, 15, 8, 5]
+      "rect": [20, 15, 8, 5],
+      "energy": {
+        "type": "consumer",
+        "rate": 100
+      }
     },
     {
       "id": "rover_bay",
       "label": "外勤车库",
-      "rect": [24, 7, 6, 4]
+      "rect": [24, 7, 6, 4],
+      "energy": {
+        "type": "consumer",
+        "rate": 110
+      }
+    },
+    {
+      "id": "power_station",
+      "label": "能源塔阵列",
+      "rect": [32, 10, 7, 5],
+      "energy": {
+        "type": "storage",
+        "capacity": 420,
+        "current": 160,
+        "output": 120
+      }
     }
   ],
   "agents": [

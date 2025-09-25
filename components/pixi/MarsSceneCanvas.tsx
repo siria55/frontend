@@ -24,6 +24,13 @@ type SceneDefinition = {
     id: string;
     label: string;
     rect: [number, number, number, number];
+    energy?: {
+      type: 'storage' | 'consumer';
+      capacity?: number;
+      current?: number;
+      output?: number;
+      rate?: number;
+    };
   }>;
   agents?: Array<{
     id: string;

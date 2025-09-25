@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 
 import CommandConsole from '@/components/CommandConsole';
 import AgentControlPad from '@/components/AgentControlPad';
+import EnergyStatus from '@/components/EnergyStatus';
 import MarsSceneCanvas from '@/components/pixi/MarsSceneCanvas';
+import sceneData from '@/assets/scenes/mars_outpost.json';
 
 export default function MarsPage() {
   const dispatchAgentBehavior = useCallback((agentId: string, behavior: string) => {
@@ -37,6 +39,63 @@ export default function MarsPage() {
     [dispatchAgentBehavior]
   );
 
+  const initialEnergyItems = useMemo(() => {
+    return (sceneData.buildings ?? [])
+      .filter((building) => building.energy)
+      .map((building) => ({
+        id: building.id,
+        label: building.label,
+        type: building.energy?.type ?? 'consumer',
+        capacity: building.energy?.capacity,
+        current: building.energy?.current,
+        output: building.energy?.output,
+        rate: building.energy?.rate
+      }));
+  }, []);
+
+  const [energyItems, setEnergyItems] = useState(initialEnergyItems);
+
+  useEffect(() => {
+    const tickMs = 1000;
+    const drainFactor = 0.002;
+
+    const interval = setInterval(() => {
+      setEnergyItems((prev) => {
+        if (!prev.length) return prev;
+
+        const totalConsumption = prev
+          .filter((item) => item.type === 'consumer')
+          .reduce((sum, item) => sum + (item.rate ?? 0), 0);
+        const totalOutput = prev
+          .filter((item) => item.type === 'storage')
+          .reduce((sum, item) => sum + (item.output ?? 0), 0);
+
+        const netLoad = Math.max(totalConsumption - totalOutput, 0);
+        const drain = netLoad * drainFactor * (tickMs / 1000);
+
+        if (drain <= 0) {
+          return prev;
+        }
+
+        let changed = false;
+        const next = prev.map((item) => {
+          if (item.type !== 'storage') return item;
+          const capacity = item.capacity ?? 0;
+          const current = Math.max((item.current ?? 0) - drain, 0);
+          if (current !== item.current) {
+            changed = true;
+            return { ...item, current };
+          }
+          return item;
+        });
+
+        return changed ? next : prev;
+      });
+    }, tickMs);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <main style={{ minHeight: '100vh', margin: 0, padding: 0 }}>
       <div
@@ -47,6 +106,17 @@ export default function MarsPage() {
         }}
       >
         <MarsSceneCanvas />
+        <div
+          style={{
+            position: 'absolute',
+            left: '32px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            display: 'flex'
+          }}
+        >
+          <EnergyStatus items={energyItems} />
+        </div>
         <div
           style={{
             position: 'absolute',
