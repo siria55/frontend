@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { ReactNode } from 'react';
 
 export const metadata: Metadata = {
-  title: 'EEO 火星前哨站',
+  title: '火星前哨站',
   description: '基于 Next.js 与 PixiJS 的火星场景原型'
 };
 

@@ -33,7 +33,7 @@ export default function CommandConsole({
   const [command, setCommand] = useState('');
   const [logs, setLogs] = useState<string[]>([]);
 
-  const effectiveTitle = title ?? 'ARES 指令输入';
+  const effectiveTitle = title ?? '阿瑞斯 指令输入';
   const effectiveSubtitle = subtitle ?? '指挥中心命令';
   const effectivePlaceholder = placeholder ?? '例如：扫描资源，返回状态';
   const effectiveMaxLogs = useMemo(() => (maxLogs && maxLogs > 0 ? maxLogs : 5), [maxLogs]);
