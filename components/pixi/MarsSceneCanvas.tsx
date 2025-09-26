@@ -19,6 +19,7 @@ type AgentAction = 'move_left' | 'move_right' | 'move_up' | 'move_down';
 type AgentCommandDetail = {
   agentId: string;
   action: AgentAction;
+  origin?: string;
 };
 
 type AgentState = {
@@ -29,7 +30,7 @@ type AgentState = {
   actions: AgentAction[];
 };
 
-type ViewportInternalProps = {
+type ViewportComponentProps = {
   app: Application;
   width: number;
   height: number;
@@ -38,11 +39,10 @@ type ViewportInternalProps = {
   minScale?: number;
   maxScale?: number;
   scale?: number;
-};
-
-type ViewportProps = Omit<ViewportInternalProps, 'app'> & {
   children?: ReactNode;
 };
+
+type ViewportProps = Omit<ViewportComponentProps, 'app'>;
 
 type MarsSceneCanvasProps = {
   scene: SceneDefinition;
@@ -77,14 +77,14 @@ const ensurePosition = (position: number[]): [number, number] => {
   return [position[0], position[1]];
 };
 
-const PixiViewportComponent = PixiComponent<ViewportInternalProps>('PixiViewport', {
+const PixiViewportComponent = PixiComponent<ViewportComponentProps, Viewport>('PixiViewport', {
   create: ({ app, width, height, worldWidth, worldHeight, minScale, maxScale, scale }) => {
     const viewport = new Viewport({
       screenWidth: width,
       screenHeight: height,
       worldWidth,
       worldHeight,
-      events: app.renderer.events,
+      interaction: app.renderer.events,
       ticker: app.ticker
     });
 
@@ -102,19 +102,21 @@ const PixiViewportComponent = PixiComponent<ViewportInternalProps>('PixiViewport
     return viewport;
   },
   applyProps: (instance, oldProps, newProps) => {
-    const { width, height, worldWidth, worldHeight, minScale, maxScale, scale } = newProps;
-    if (oldProps.width !== width || oldProps.height !== height) {
+    const prev = oldProps as ViewportComponentProps;
+    const next = newProps as ViewportComponentProps;
+    const { width, height, worldWidth, worldHeight, minScale, maxScale, scale } = next;
+    if (prev.width !== width || prev.height !== height) {
       instance.resize(width, height, worldWidth, worldHeight);
     }
-    if (oldProps.worldWidth !== worldWidth || oldProps.worldHeight !== worldHeight) {
+    if (prev.worldWidth !== worldWidth || prev.worldHeight !== worldHeight) {
       instance.worldWidth = worldWidth;
       instance.worldHeight = worldHeight;
       instance.clamp({ direction: 'all' });
     }
-    if (oldProps.minScale !== minScale || oldProps.maxScale !== maxScale) {
+    if (prev.minScale !== minScale || prev.maxScale !== maxScale) {
       instance.clampZoom({ minScale: minScale ?? 0.3, maxScale: maxScale ?? 3 });
     }
-    if (scale !== undefined && oldProps.scale !== scale) {
+    if (scale !== undefined && prev.scale !== scale) {
       const clamped = Math.max(minScale ?? 0.3, Math.min(scale, maxScale ?? 3));
       instance.setZoom(clamped, true);
     }
@@ -147,6 +149,31 @@ const useViewportSize = () => {
 
 export default function MarsSceneCanvas({ scene, zoom }: MarsSceneCanvasProps) {
   const { width, height } = useViewportSize();
+  const backendBaseUrl = useMemo(
+    () => (process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, ''),
+    []
+  );
+
+  const logAgentAction = useCallback(
+    async (agentId: string, action: AgentAction, origin: string) => {
+      try {
+        await fetch(`${backendBaseUrl}/v1/agents/${agentId}/actions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action_type: action,
+            actions: [action],
+            source: 'frontend',
+            issued_by: origin,
+            result_status: 'accepted'
+          })
+        });
+      } catch (error) {
+        console.warn('failed to log agent action', error);
+      }
+    },
+    [backendBaseUrl]
+  );
 
   const buildings: SceneBuilding[] = useMemo(
     () => scene.buildings.map((building) => ({ ...building, rect: ensureRect(building.rect) })),
@@ -313,8 +340,10 @@ const drawBuildings = useCallback(
   useEffect(() => {
     const handleAgentCommand = (event: Event) => {
       const custom = event as CustomEvent<AgentCommandDetail>;
-      const { agentId, action } = custom.detail ?? {};
+      const { agentId, action, origin } = custom.detail ?? {};
       if (!agentId || !action) return;
+
+      const issuedBy = origin ?? 'mars_ui';
 
       setAgents((prev) =>
         prev.map((agent) => {
@@ -326,13 +355,15 @@ const drawBuildings = useCallback(
           };
         })
       );
+
+      void logAgentAction(agentId, action, issuedBy);
     };
 
     window.addEventListener('mars-agent-command', handleAgentCommand as EventListener);
     return () => {
       window.removeEventListener('mars-agent-command', handleAgentCommand as EventListener);
     };
-  }, []);
+  }, [logAgentAction]);
 
   const agentElements = useMemo(
     () =>

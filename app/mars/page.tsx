@@ -22,7 +22,7 @@ export default function MarsPage() {
 
   const dispatchAgentAction = useCallback((agentId: string, action: string) => {
     const event = new CustomEvent('mars-agent-command', {
-      detail: { agentId, action }
+      detail: { agentId, action, origin: 'command_console' }
     });
     window.dispatchEvent(event);
   }, []);

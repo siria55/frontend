@@ -47,7 +47,8 @@ export default function AgentControlPad({ agentId }: AgentControlPadProps) {
     const event = new CustomEvent('mars-agent-command', {
       detail: {
         agentId,
-        action
+        action,
+        origin: 'control_pad'
       }
     });
     window.dispatchEvent(event);
