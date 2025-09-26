@@ -35,7 +35,7 @@ const rowsStyle: React.CSSProperties = {
   gap: '0.5rem'
 };
 
-const behaviors = [
+const actions = [
   { id: 'move_up', label: '上移' },
   { id: 'move_left', label: '左移' },
   { id: 'move_right', label: '右移' },
@@ -43,11 +43,11 @@ const behaviors = [
 ];
 
 export default function AgentControlPad({ agentId }: AgentControlPadProps) {
-  const handleClick = (behavior: string) => {
+  const handleClick = (action: string) => {
     const event = new CustomEvent('mars-agent-command', {
       detail: {
         agentId,
-        behavior
+        action
       }
     });
     window.dispatchEvent(event);
@@ -60,7 +60,7 @@ export default function AgentControlPad({ agentId }: AgentControlPadProps) {
         <strong style={{ fontSize: '1.1rem', color: '#f4f4ff' }}>阿瑞斯 机动指令</strong>
       </div>
       <div style={rowsStyle}>
-        {behaviors.map((item) => (
+        {actions.map((item) => (
           <button
             key={item.id}
             type="button"

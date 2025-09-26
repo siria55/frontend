@@ -29,7 +29,7 @@ export interface SceneAgent {
   label: string;
   position: number[];
   color?: number;
-  behaviors?: string[];
+  actions?: string[];
 }
 
 export interface SceneDefinition {

@@ -20,9 +20,9 @@ export default function MarsPage() {
   const [sceneError, setSceneError] = useState<string | null>(null);
   const [sceneLoading, setSceneLoading] = useState(true);
 
-  const dispatchAgentBehavior = useCallback((agentId: string, behavior: string) => {
+  const dispatchAgentAction = useCallback((agentId: string, action: string) => {
     const event = new CustomEvent('mars-agent-command', {
-      detail: { agentId, behavior }
+      detail: { agentId, action }
     });
     window.dispatchEvent(event);
   }, []);
@@ -32,22 +32,22 @@ export default function MarsPage() {
       const normalized = rawCommand.toLowerCase();
       const compact = normalized.replace(/\s+/g, '');
 
-      const behaviorTable = [
-        { behavior: 'move_left', keywords: ['left', '向左', '左移', '左转', '左', '←'] },
-        { behavior: 'move_right', keywords: ['right', '向右', '右移', '右转', '右', '→'] },
-        { behavior: 'move_up', keywords: ['up', '向上', '上移', '上升', '上', '↑'] },
-        { behavior: 'move_down', keywords: ['down', '向下', '下移', '下降', '下', '↓'] }
+      const actionTable = [
+        { action: 'move_left', keywords: ['left', '向左', '左移', '左转', '左', '←'] },
+        { action: 'move_right', keywords: ['right', '向右', '右移', '右转', '右', '→'] },
+        { action: 'move_up', keywords: ['up', '向上', '上移', '上升', '上', '↑'] },
+        { action: 'move_down', keywords: ['down', '向下', '下移', '下降', '下', '↓'] }
       ] as const;
 
-      const match = behaviorTable.find((entry) =>
+      const match = actionTable.find((entry) =>
         entry.keywords.some((keyword) => normalized.includes(keyword) || compact.includes(keyword))
       );
 
       if (match) {
-        dispatchAgentBehavior('ares-01', match.behavior);
+        dispatchAgentAction('ares-01', match.action);
       }
     },
-    [dispatchAgentBehavior]
+    [dispatchAgentAction]
   );
 
   const buildEnergyItems = useCallback((sceneDef: SceneDefinition | null): EnergyInfo[] => {

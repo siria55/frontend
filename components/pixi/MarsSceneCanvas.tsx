@@ -15,10 +15,10 @@ import { Viewport } from 'pixi-viewport';
 
 import type { SceneDefinition, SceneBuilding, SceneAgent } from '@/types/scene';
 
-type AgentBehavior = 'move_left' | 'move_right' | 'move_up' | 'move_down';
+type AgentAction = 'move_left' | 'move_right' | 'move_up' | 'move_down';
 type AgentCommandDetail = {
   agentId: string;
-  behavior: AgentBehavior;
+  action: AgentAction;
 };
 
 type AgentState = {
@@ -26,7 +26,7 @@ type AgentState = {
   label: string;
   position: [number, number];
   color?: number;
-  behaviors: AgentBehavior[];
+  actions: AgentAction[];
 };
 
 type ViewportInternalProps = {
@@ -158,7 +158,7 @@ export default function MarsSceneCanvas({ scene, zoom }: MarsSceneCanvasProps) {
       (scene.agents ?? []).map((agent: SceneAgent) => ({
         ...agent,
         position: ensurePosition(agent.position),
-        behaviors: (agent.behaviors as AgentBehavior[] | undefined) ?? []
+        actions: (agent.actions as AgentAction[] | undefined) ?? []
       })),
     [scene]
   );
@@ -264,7 +264,7 @@ const drawBuildings = useCallback(
     const update = () => {
       setAgents((prev) =>
         prev.map((agent) => {
-          const persistent = new Set(agent.behaviors ?? []);
+          const persistent = new Set(agent.actions ?? []);
           const isPlayer = agent.id === 'ares-01';
 
           let nextX = agent.position[0];
@@ -289,7 +289,7 @@ const drawBuildings = useCallback(
 
           return {
             ...agent,
-            behaviors: Array.from(persistent),
+            actions: Array.from(persistent),
             position: [wrapCoord(nextX, cols), wrapCoord(nextY, rows)] as [number, number]
           };
         })
@@ -313,16 +313,16 @@ const drawBuildings = useCallback(
   useEffect(() => {
     const handleAgentCommand = (event: Event) => {
       const custom = event as CustomEvent<AgentCommandDetail>;
-      const { agentId, behavior } = custom.detail ?? {};
-      if (!agentId || !behavior) return;
+      const { agentId, action } = custom.detail ?? {};
+      if (!agentId || !action) return;
 
       setAgents((prev) =>
         prev.map((agent) => {
           if (agent.id !== agentId) return agent;
-          const nextBehaviors: AgentBehavior[] = [behavior];
+          const nextActions: AgentAction[] = [action];
           return {
             ...agent,
-            behaviors: nextBehaviors
+            actions: nextActions
           };
         })
       );
