@@ -1,5 +1,5 @@
 export const numberToString = (value?: number | null): string =>
-  value ?? value === 0 ? String(value) : '';
+  value !== undefined && value !== null ? String(value) : '';
 
 export const parseOptionalInt = (value: string): number | null => {
   const trimmed = value.trim();

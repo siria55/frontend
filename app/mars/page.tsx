@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState, useEffect } from 'react';
+import type { CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
 
 import CommandConsole from '@/components/CommandConsole';
@@ -8,7 +9,7 @@ import AgentControlPad from '@/components/AgentControlPad';
 import EnergyStatus, { EnergyInfo } from '@/components/EnergyStatus';
 import CollapsiblePanel from '@/components/CollapsiblePanel';
 import ViewportZoomControl from '@/components/ViewportZoomControl';
-import type { SceneDefinition } from '@/types/scene';
+import type { SceneDefinition, SceneBuilding, SceneEnergy } from '@/types/scene';
 
 const MarsSceneCanvas = dynamic(() => import('@/components/pixi/MarsSceneCanvas'), {
   ssr: false
@@ -70,6 +71,24 @@ export default function MarsPage() {
   const backendBaseUrl = (process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, '');
   const sceneEndpoint = `${backendBaseUrl}/v1/game/scene`;
 
+  const updateBuildingEnergyOnServer = useCallback(
+    async (building: SceneBuilding, current: number) => {
+      try {
+        await fetch(
+          `${backendBaseUrl}/v1/game/scene/buildings/${encodeURIComponent(building.id)}/energy`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ current })
+          }
+        );
+      } catch (error) {
+        console.warn('failed to sync building energy', building.id, error);
+      }
+    },
+    [backendBaseUrl]
+  );
+
   const fetchScene = useCallback(async () => {
     setSceneLoading(true);
     setSceneError(null);
@@ -99,6 +118,7 @@ export default function MarsPage() {
     const drainFactor = 0.002;
 
     const interval = setInterval(() => {
+      const updates: { id: string; current: number }[] = [];
       setEnergyItems((prev) => {
         if (!prev.length) return prev;
 
@@ -120,9 +140,10 @@ export default function MarsPage() {
         const next = prev.map((item) => {
           if (item.type !== 'storage') return item;
           const capacity = item.capacity ?? 0;
-          const current = Math.max((item.current ?? 0) - drain, 0);
+          const current = Math.max(Math.round((item.current ?? 0) - drain), 0);
           if (current !== item.current) {
             changed = true;
+            updates.push({ id: item.id, current });
             return { ...item, current };
           }
           return item;
@@ -130,10 +151,34 @@ export default function MarsPage() {
 
         return changed ? next : prev;
       });
+
+      if (updates.length) {
+        const affected: SceneBuilding[] = [];
+        setScene((prev) => {
+          if (!prev) return prev;
+          const map = new Map(updates.map((entry) => [entry.id, entry.current]));
+          const buildings = (prev.buildings ?? []).map((building) => {
+            const current = map.get(building.id);
+            if (current === undefined) return building;
+            const nextEnergy: SceneEnergy = building.energy
+              ? { ...building.energy, current }
+              : { type: 'storage', current };
+            const nextBuilding = { ...building, energy: nextEnergy };
+            affected.push(nextBuilding);
+            return nextBuilding;
+          });
+          return { ...prev, buildings };
+        });
+
+        affected.forEach((building) => {
+          if (building.energy?.type !== 'storage') return;
+          void updateBuildingEnergyOnServer(building, building.energy?.current ?? 0);
+        });
+      }
     }, tickMs);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [updateBuildingEnergyOnServer]);
 
   const handleZoomChange = useCallback((value: number) => {
     setViewportZoom(Math.max(1, value));
