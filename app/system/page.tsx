@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent } from 'react';
 
-import type { SceneAgent, SceneBuilding, SceneDimensions, SceneGrid } from '@/types/scene';
+import type {
+  SceneAgent,
+  SceneBuilding,
+  SceneBuildingTemplate,
+  SceneDimensions,
+  SceneGrid
+} from '@/types/scene';
 
 type SceneMeta = {
   id: string;
@@ -16,6 +22,7 @@ type SystemSnapshot = {
   dimensions: SceneDimensions;
   buildings: SceneBuilding[];
   agents: SceneAgent[];
+  templates: SceneBuildingTemplate[];
 };
 
 const panelStyle: React.CSSProperties = {
@@ -389,6 +396,37 @@ export default function SystemPage() {
             </section>
 
             <section style={panelStyle}>
+              <h2 style={sectionTitleStyle}>建筑模板（system_building_templates）</h2>
+              <ul style={listStyle}>
+                {(snapshot.templates ?? []).map((tpl) => (
+                  <li
+                    key={tpl.id}
+                    style={{
+                      padding: '1rem',
+                      borderRadius: '12px',
+                      background: 'rgba(36, 33, 58, 0.55)',
+                      border: '1px solid rgba(140, 150, 190, 0.2)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '1rem' }}>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{tpl.label}</div>
+                      <code style={{ fontSize: '0.85rem', color: '#92a0ff' }}>{tpl.id}</code>
+                    </div>
+                    {tpl.energy && (
+                      <div style={{ marginTop: '0.4rem', color: '#dde1ff', fontSize: '0.9rem' }}>
+                        类型：{tpl.energy.type === 'storage' ? '储能' : '耗能'}
+                        {tpl.energy.capacity != null && <span> · 容量 {tpl.energy.capacity}</span>}
+                        {tpl.energy.current != null && <span> · 当前 {tpl.energy.current}</span>}
+                        {tpl.energy.output != null && <span> · 输出 {tpl.energy.output}</span>}
+                        {tpl.energy.rate != null && <span> · 消耗 {tpl.energy.rate}</span>}
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section style={panelStyle}>
               <h2 style={sectionTitleStyle}>建筑（system_scene_buildings）</h2>
               <ul style={listStyle}>
                 {snapshot.buildings.map((building) => {
@@ -413,6 +451,11 @@ export default function SystemPage() {
                       <div style={{ marginTop: '0.5rem', color: '#b8bfed' }}>
                         区域：({building.rect[0]}, {building.rect[1]}) · {building.rect[2]} × {building.rect[3]}
                       </div>
+                      {building.templateId && (
+                        <div style={{ marginTop: '0.35rem', color: '#8ea0ff', fontSize: '0.85rem' }}>
+                          模板：{building.templateId}
+                        </div>
+                      )}
                       {building.energy && (
                         <div style={{ marginTop: '0.35rem', color: '#dde1ff', fontSize: '0.9rem' }}>
                           {building.energy.capacity != null && <span>容量 {building.energy.capacity} · </span>}

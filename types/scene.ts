@@ -19,6 +19,7 @@ export interface SceneEnergy {
 
 export interface SceneBuilding {
   id: string;
+  templateId?: string;
   label: string;
   rect: number[];
   energy?: SceneEnergy;
@@ -39,6 +40,13 @@ export interface SceneDefinition {
   dimensions: SceneDimensions;
   buildings: SceneBuilding[];
   agents?: SceneAgent[];
+  templates?: SceneBuildingTemplate[];
 }
 
 export interface SceneResponse extends SceneDefinition {}
+
+export interface SceneBuildingTemplate {
+  id: string;
+  label: string;
+  energy?: SceneEnergy;
+}
