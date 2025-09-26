@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState, useEffect } from 'react';
-import type { CSSProperties } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 
 import CommandConsole from '@/components/CommandConsole';
@@ -9,7 +8,7 @@ import AgentControlPad from '@/components/AgentControlPad';
 import EnergyStatus, { EnergyInfo } from '@/components/EnergyStatus';
 import CollapsiblePanel from '@/components/CollapsiblePanel';
 import ViewportZoomControl from '@/components/ViewportZoomControl';
-import type { SceneDefinition, SceneBuilding, SceneEnergy } from '@/types/scene';
+import type { SceneDefinition } from '@/types/scene';
 
 const MarsSceneCanvas = dynamic(() => import('@/components/pixi/MarsSceneCanvas'), {
   ssr: false
@@ -71,24 +70,6 @@ export default function MarsPage() {
   const backendBaseUrl = (process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, '');
   const sceneEndpoint = `${backendBaseUrl}/v1/game/scene`;
 
-  const updateBuildingEnergyOnServer = useCallback(
-    async (building: SceneBuilding, current: number) => {
-      try {
-        await fetch(
-          `${backendBaseUrl}/v1/game/scene/buildings/${encodeURIComponent(building.id)}/energy`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ current })
-          }
-        );
-      } catch (error) {
-        console.warn('failed to sync building energy', building.id, error);
-      }
-    },
-    [backendBaseUrl]
-  );
-
   const fetchScene = useCallback(async () => {
     setSceneLoading(true);
     setSceneError(null);
@@ -115,70 +96,49 @@ export default function MarsPage() {
 
   useEffect(() => {
     const tickMs = 1000;
+    const seconds = tickMs / 1000;
     const drainFactor = 0.002;
+    let cancelled = false;
+    let ticking = false;
+
+    const advanceEnergy = async () => {
+      if (ticking || cancelled) return;
+      ticking = true;
+      try {
+        const response = await fetch(`${backendBaseUrl}/v1/game/scene/energy/tick`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ seconds, drainFactor })
+        });
+        if (!response.ok) {
+          throw new Error(`failed to advance energy state: ${response.status}`);
+        }
+        const payload: SceneDefinition = await response.json();
+        if (!cancelled) {
+          setScene(payload);
+          setEnergyItems(buildEnergyItems(payload));
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.warn('failed to advance energy state', error);
+        }
+      } finally {
+        ticking = false;
+      }
+    };
 
     const interval = setInterval(() => {
-      const updates: { id: string; current: number }[] = [];
-      setEnergyItems((prev) => {
-        if (!prev.length) return prev;
-
-        const totalConsumption = prev
-          .filter((item) => item.type === 'consumer')
-          .reduce((sum, item) => sum + (item.rate ?? 0), 0);
-        const totalOutput = prev
-          .filter((item) => item.type === 'storage')
-          .reduce((sum, item) => sum + (item.output ?? 0), 0);
-
-        const netLoad = Math.max(totalConsumption - totalOutput, 0);
-        const drain = netLoad * drainFactor * (tickMs / 1000);
-
-        if (drain <= 0) {
-          return prev;
-        }
-
-        let changed = false;
-        const next = prev.map((item) => {
-          if (item.type !== 'storage') return item;
-          const capacity = item.capacity ?? 0;
-          const current = Math.max(Math.round((item.current ?? 0) - drain), 0);
-          if (current !== item.current) {
-            changed = true;
-            updates.push({ id: item.id, current });
-            return { ...item, current };
-          }
-          return item;
-        });
-
-        return changed ? next : prev;
-      });
-
-      if (updates.length) {
-        const affected: SceneBuilding[] = [];
-        setScene((prev) => {
-          if (!prev) return prev;
-          const map = new Map(updates.map((entry) => [entry.id, entry.current]));
-          const buildings = (prev.buildings ?? []).map((building) => {
-            const current = map.get(building.id);
-            if (current === undefined) return building;
-            const nextEnergy: SceneEnergy = building.energy
-              ? { ...building.energy, current }
-              : { type: 'storage', current };
-            const nextBuilding = { ...building, energy: nextEnergy };
-            affected.push(nextBuilding);
-            return nextBuilding;
-          });
-          return { ...prev, buildings };
-        });
-
-        affected.forEach((building) => {
-          if (building.energy?.type !== 'storage') return;
-          void updateBuildingEnergyOnServer(building, building.energy?.current ?? 0);
-        });
-      }
+      void advanceEnergy();
     }, tickMs);
 
-    return () => clearInterval(interval);
-  }, [updateBuildingEnergyOnServer]);
+    // 组件挂载后立即尝试推进一次，避免等完整周期
+    void advanceEnergy();
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [backendBaseUrl, buildEnergyItems]);
 
   const handleZoomChange = useCallback((value: number) => {
     setViewportZoom(Math.max(1, value));
