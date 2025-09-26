@@ -15,7 +15,7 @@ const MarsSceneCanvas = dynamic(() => import('@/components/pixi/MarsSceneCanvas'
 });
 
 export default function MarsPage() {
-  const [viewportZoom, setViewportZoom] = useState(0.6);
+  const [viewportZoom, setViewportZoom] = useState(1);
   const [scene, setScene] = useState<SceneDefinition | null>(null);
   const [sceneError, setSceneError] = useState<string | null>(null);
   const [sceneLoading, setSceneLoading] = useState(true);
@@ -136,7 +136,7 @@ export default function MarsPage() {
   }, []);
 
   const handleZoomChange = useCallback((value: number) => {
-    setViewportZoom(value);
+    setViewportZoom(Math.max(1, value));
   }, []);
 
   return (
@@ -178,8 +178,20 @@ export default function MarsPage() {
           <CollapsiblePanel title="能源概览">
             <EnergyStatus items={energyItems} />
           </CollapsiblePanel>
+        </div>
+        <div
+          style={{
+            position: 'absolute',
+            top: '32px',
+            right: '32px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem',
+            alignItems: 'flex-end'
+          }}
+        >
           <CollapsiblePanel title="视野缩放">
-            <ViewportZoomControl value={viewportZoom} onChange={handleZoomChange} />
+            <ViewportZoomControl min={1} max={3} value={viewportZoom} onChange={handleZoomChange} />
           </CollapsiblePanel>
         </div>
         <div

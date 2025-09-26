@@ -94,9 +94,9 @@ const PixiViewportComponent = PixiComponent<ViewportComponentProps, Viewport>('P
       .wheel()
       .decelerate()
       .clamp({ direction: 'all' })
-      .clampZoom({ minScale: minScale ?? 0.3, maxScale: maxScale ?? 3 });
+      .clampZoom({ minScale: minScale ?? 1, maxScale: maxScale ?? 3 });
 
-    const initialZoom = Math.max(minScale ?? 0.3, Math.min(scale ?? 1, maxScale ?? 3));
+    const initialZoom = Math.max(minScale ?? 1, Math.min(scale ?? 1, maxScale ?? 3));
     viewport.setZoom(initialZoom, true);
     viewport.moveCenter(worldWidth / 2, worldHeight / 2);
     return viewport;
@@ -114,10 +114,10 @@ const PixiViewportComponent = PixiComponent<ViewportComponentProps, Viewport>('P
       instance.clamp({ direction: 'all' });
     }
     if (prev.minScale !== minScale || prev.maxScale !== maxScale) {
-      instance.clampZoom({ minScale: minScale ?? 0.3, maxScale: maxScale ?? 3 });
+      instance.clampZoom({ minScale: minScale ?? 1, maxScale: maxScale ?? 3 });
     }
     if (scale !== undefined && prev.scale !== scale) {
-      const clamped = Math.max(minScale ?? 0.3, Math.min(scale, maxScale ?? 3));
+      const clamped = Math.max(minScale ?? 1, Math.min(scale, maxScale ?? 3));
       instance.setZoom(clamped, true);
     }
   },
@@ -406,7 +406,7 @@ const drawBuildings = useCallback(
   const minScaleEstimate = useMemo(() => {
     const widthScale = width / mapWidth;
     const heightScale = height / mapHeight;
-    return Math.max(Math.min(widthScale, heightScale), 0.12);
+    return Math.max(Math.min(widthScale, heightScale), 1);
   }, [height, mapHeight, mapWidth, width]);
 
   const clampedZoom = useMemo(() => {
