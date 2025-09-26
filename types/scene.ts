@@ -27,6 +27,7 @@ export interface SceneBuilding {
 
 export interface SceneAgent {
   id: string;
+  templateId?: string;
   label: string;
   position: number[];
   color?: number;
@@ -40,7 +41,8 @@ export interface SceneDefinition {
   dimensions: SceneDimensions;
   buildings: SceneBuilding[];
   agents?: SceneAgent[];
-  templates?: SceneBuildingTemplate[];
+  buildingTemplates?: SceneBuildingTemplate[];
+  agentTemplates?: SceneAgentTemplate[];
 }
 
 export interface SceneResponse extends SceneDefinition {}
@@ -49,4 +51,11 @@ export interface SceneBuildingTemplate {
   id: string;
   label: string;
   energy?: SceneEnergy;
+}
+
+export interface SceneAgentTemplate {
+  id: string;
+  label: string;
+  color?: number;
+  position?: number[];
 }
