@@ -67,9 +67,19 @@ type Props = {
   onClearStatus: () => void;
   onValidationError: (message: string) => void;
   isPending: (id: string) => boolean;
+  framed?: boolean;
+  title?: string;
 };
 
-export function BuildingTemplateSection({ templates, onSave, onClearStatus, onValidationError, isPending }: Props) {
+export function BuildingTemplateSection({
+  templates,
+  onSave,
+  onClearStatus,
+  onValidationError,
+  isPending,
+  framed = true,
+  title = '建筑模板（system_template_buildings）'
+}: Props) {
   const getId = useCallback((tpl: SceneBuildingTemplate) => tpl.id, []);
   const { getForm, setFieldValue, resetForm } = useFormMap(templates, getId, toForm, createEmptyForm);
 
@@ -116,9 +126,11 @@ export function BuildingTemplateSection({ templates, onSave, onClearStatus, onVa
     [onClearStatus, resetForm]
   );
 
+  const HeadingTag: 'h2' | 'h3' = framed ? 'h2' : 'h3';
+
   return (
-    <section style={panelStyle}>
-      <h2 style={sectionTitleStyle}>建筑模板（system_template_buildings）</h2>
+    <section style={framed ? panelStyle : undefined}>
+      <HeadingTag style={sectionTitleStyle}>{title}</HeadingTag>
       <ul style={listStyle}>
         {(templates ?? []).map((tpl) => {
           const form = getForm(tpl.id);
@@ -177,42 +189,48 @@ export function BuildingTemplateSection({ templates, onSave, onClearStatus, onVa
                     <option value="consumer">耗能</option>
                   </select>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                  <span style={labelStyle}>容量</span>
-                  <input
-                    type="number"
-                    value={form.energyCapacity}
-                    onChange={handleFieldChange(tpl.id, 'energyCapacity')}
-                    style={inputStyle}
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                  <span style={labelStyle}>当前</span>
-                  <input
-                    type="number"
-                    value={form.energyCurrent}
-                    onChange={handleFieldChange(tpl.id, 'energyCurrent')}
-                    style={inputStyle}
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                  <span style={labelStyle}>输出</span>
-                  <input
-                    type="number"
-                    value={form.energyOutput}
-                    onChange={handleFieldChange(tpl.id, 'energyOutput')}
-                    style={inputStyle}
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                  <span style={labelStyle}>消耗</span>
-                  <input
-                    type="number"
-                    value={form.energyRate}
-                    onChange={handleFieldChange(tpl.id, 'energyRate')}
-                    style={inputStyle}
-                  />
-                </div>
+                {form.energyType === 'storage' && (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                      <span style={labelStyle}>容量（单位）</span>
+                      <input
+                        type="number"
+                        value={form.energyCapacity}
+                        onChange={handleFieldChange(tpl.id, 'energyCapacity')}
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                      <span style={labelStyle}>当前（单位）</span>
+                      <input
+                        type="number"
+                        value={form.energyCurrent}
+                        onChange={handleFieldChange(tpl.id, 'energyCurrent')}
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                      <span style={labelStyle}>输出（单位/小时）</span>
+                      <input
+                        type="number"
+                        value={form.energyOutput}
+                        onChange={handleFieldChange(tpl.id, 'energyOutput')}
+                        style={inputStyle}
+                      />
+                    </div>
+                  </>
+                )}
+                {form.energyType === 'consumer' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    <span style={labelStyle}>消耗（单位/小时）</span>
+                    <input
+                      type="number"
+                      value={form.energyRate}
+                      onChange={handleFieldChange(tpl.id, 'energyRate')}
+                      style={inputStyle}
+                    />
+                  </div>
+                )}
               </div>
               <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
                 <button

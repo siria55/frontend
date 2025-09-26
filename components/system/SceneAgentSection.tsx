@@ -69,9 +69,19 @@ type Props = {
   onClearStatus: () => void;
   onValidationError: (message: string) => void;
   isPending: (id: string) => boolean;
+  framed?: boolean;
+  title?: string;
 };
 
-export function SceneAgentSection({ agents, onSave, onClearStatus, onValidationError, isPending }: Props) {
+export function SceneAgentSection({
+  agents,
+  onSave,
+  onClearStatus,
+  onValidationError,
+  isPending,
+  framed = true,
+  title = 'Agent（system_scene_agents & actions）'
+}: Props) {
   const getId = useCallback((agent: SceneAgent) => agent.id, []);
   const { getForm, setFieldValue, resetForm } = useFormMap(agents, getId, toForm, createEmptyForm);
 
@@ -129,9 +139,11 @@ export function SceneAgentSection({ agents, onSave, onClearStatus, onValidationE
     [onClearStatus, resetForm]
   );
 
+  const HeadingTag: 'h2' | 'h3' = framed ? 'h2' : 'h3';
+
   return (
-    <section style={panelStyle}>
-      <h2 style={sectionTitleStyle}>Agent（system_scene_agents & actions）</h2>
+    <section style={framed ? panelStyle : undefined}>
+      <HeadingTag style={sectionTitleStyle}>{title}</HeadingTag>
       <ul style={listStyle}>
         {agents.map((agent) => {
           const form = getForm(agent.id);

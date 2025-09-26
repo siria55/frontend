@@ -339,6 +339,18 @@ export default function SystemPage() {
     [backendBaseUrl, clearStatus, performSnapshotUpdate]
   );
 
+  const groupGridStyle: CSSProperties = {
+    display: 'grid',
+    gap: '1.25rem',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))'
+  };
+
+  const groupNoteStyle: CSSProperties = {
+    margin: '0.5rem 0 0',
+    color: '#9aaafe',
+    fontSize: '0.9rem'
+  };
+
   return (
     <main
       style={{
@@ -483,37 +495,55 @@ export default function SystemPage() {
               </div>
             </section>
 
-            <BuildingTemplateSection
-              templates={snapshot.buildingTemplates}
-              onSave={saveBuildingTemplate}
-              onClearStatus={clearStatus}
-              onValidationError={handleValidationError}
-              isPending={isBuildingTemplatePending}
-            />
+            <section style={panelStyle}>
+              <h2 style={sectionTitleStyle}>模板配置</h2>
+              <p style={groupNoteStyle}>维护系统级模板，影响所有场景实例的默认外观与属性。</p>
+              <div style={groupGridStyle}>
+                <BuildingTemplateSection
+                  templates={snapshot.buildingTemplates}
+                  onSave={saveBuildingTemplate}
+                  onClearStatus={clearStatus}
+                  onValidationError={handleValidationError}
+                  isPending={isBuildingTemplatePending}
+                  framed={false}
+                  title="建筑模板"
+                />
+                <AgentTemplateSection
+                  templates={snapshot.agentTemplates}
+                  onSave={saveAgentTemplate}
+                  onClearStatus={clearStatus}
+                  onValidationError={handleValidationError}
+                  isPending={isAgentTemplatePending}
+                  framed={false}
+                  title="Agent 模板"
+                />
+              </div>
+            </section>
 
-            <AgentTemplateSection
-              templates={snapshot.agentTemplates}
-              onSave={saveAgentTemplate}
-              onClearStatus={clearStatus}
-              onValidationError={handleValidationError}
-              isPending={isAgentTemplatePending}
-            />
-
-            <SceneBuildingSection
-              buildings={snapshot.buildings}
-              onSave={saveSceneBuilding}
-              onClearStatus={clearStatus}
-              onValidationError={handleValidationError}
-              isPending={isSceneBuildingPending}
-            />
-
-            <SceneAgentSection
-              agents={snapshot.agents}
-              onSave={saveSceneAgent}
-              onClearStatus={clearStatus}
-              onValidationError={handleValidationError}
-              isPending={isSceneAgentPending}
-            />
+            <section style={panelStyle}>
+              <h2 style={sectionTitleStyle}>场景实体</h2>
+              <p style={groupNoteStyle}>直接作用于当前场景的建筑与 Agent 实例，可覆盖模板配置。</p>
+              <div style={groupGridStyle}>
+                <SceneBuildingSection
+                  buildings={snapshot.buildings}
+                  onSave={saveSceneBuilding}
+                  onClearStatus={clearStatus}
+                  onValidationError={handleValidationError}
+                  isPending={isSceneBuildingPending}
+                  framed={false}
+                  title="建筑实例"
+                />
+                <SceneAgentSection
+                  agents={snapshot.agents}
+                  onSave={saveSceneAgent}
+                  onClearStatus={clearStatus}
+                  onValidationError={handleValidationError}
+                  isPending={isSceneAgentPending}
+                  framed={false}
+                  title="Agent 实例"
+                />
+              </div>
+            </section>
           </div>
         )}
       </div>
