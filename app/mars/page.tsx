@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import CommandConsole from '@/components/CommandConsole';
 import AgentControlPad from '@/components/AgentControlPad';
 import EnergyStatus, { EnergyInfo } from '@/components/EnergyStatus';
+import CollapsiblePanel from '@/components/CollapsiblePanel';
 import ViewportZoomControl from '@/components/ViewportZoomControl';
 import type { SceneDefinition } from '@/types/scene';
 
@@ -174,8 +175,12 @@ export default function MarsPage() {
             gap: '1rem'
           }}
         >
-          <EnergyStatus items={energyItems} />
-          <ViewportZoomControl value={viewportZoom} onChange={handleZoomChange} />
+          <CollapsiblePanel title="能源概览">
+            <EnergyStatus items={energyItems} />
+          </CollapsiblePanel>
+          <CollapsiblePanel title="视野缩放">
+            <ViewportZoomControl value={viewportZoom} onChange={handleZoomChange} />
+          </CollapsiblePanel>
         </div>
         <div
           style={{

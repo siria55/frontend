@@ -224,22 +224,22 @@ export default function MarsSceneCanvas({ scene, zoom }: MarsSceneCanvasProps) {
     [cols, mapHeight, mapWidth, rows, tileSize]
   );
 
-  const drawBuildings = useCallback(
-    (g: PixiGraphics) => {
-      g.clear();
-      buildings.forEach((building) => {
-        const [x, y, w, h] = building.rect;
-        const px = x * tileSize;
-        const py = y * tileSize;
-        const bw = w * tileSize;
-        const bh = h * tileSize;
-        g.beginFill(BUILDING_COLOR, 0.9);
-        g.drawRoundedRect(px, py, bw, bh, 10);
-        g.endFill();
-      });
-    },
-    [buildings, tileSize]
-  );
+const drawBuildings = useCallback(
+  (g: PixiGraphics) => {
+    g.clear();
+    buildings.forEach((building) => {
+      const [x, y, w, h] = building.rect;
+      const px = x * tileSize;
+      const py = y * tileSize;
+      const bw = w * tileSize;
+      const bh = h * tileSize;
+      g.beginFill(BUILDING_COLOR, 0.9);
+      g.drawRect(px, py, bw, bh);
+      g.endFill();
+    });
+  },
+  [buildings, tileSize]
+);
 
   useEffect(() => {
     const speed = 0.22;
@@ -358,17 +358,18 @@ export default function MarsSceneCanvas({ scene, zoom }: MarsSceneCanvasProps) {
               y={tileSize + 4}
               style={new TextStyle({
                 fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-                fontSize: Math.max(tileSize * 0.4, 10),
+                fontSize: 12,
                 fill: '#f5f5ff',
                 dropShadow: true,
                 dropShadowDistance: 1,
                 dropShadowColor: '#0d0d1c'
               })}
+              scale={{ x: 1 / (zoom ?? 1), y: 1 / (zoom ?? 1) }}
             />
           </Container>
         );
       }),
-    [agents, tileSize]
+    [agents, tileSize, zoom]
   );
 
   const minScaleEstimate = useMemo(() => {
