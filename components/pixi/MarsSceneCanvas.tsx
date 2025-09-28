@@ -5,6 +5,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState
 } from 'react';
 import type { ReactNode } from 'react';
@@ -14,6 +15,7 @@ import { TextStyle } from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
 
 import { agentsApi } from '@/lib/api/agents';
+import { gameApi } from '@/lib/api/game';
 import type { SceneDefinition, SceneBuilding, SceneAgent } from '@/types/scene';
 
 type AgentAction = 'move_left' | 'move_right' | 'move_up' | 'move_down';
@@ -150,6 +152,8 @@ const useViewportSize = () => {
 
 export default function MarsSceneCanvas({ scene, zoom }: MarsSceneCanvasProps) {
   const { width, height } = useViewportSize();
+  const persistedPositionsRef = useRef<Map<string, [number, number]>>(new Map());
+  const latestPositionsRef = useRef<Map<string, [number, number]>>(new Map());
   const logAgentAction = useCallback(
     async (agentId: string, action: AgentAction, origin: string) => {
       try {
@@ -185,8 +189,22 @@ export default function MarsSceneCanvas({ scene, zoom }: MarsSceneCanvasProps) {
   const [agents, setAgents] = useState<AgentState[]>(initialAgents);
 
   useEffect(() => {
+    const initialMap = new Map<string, [number, number]>();
+    initialAgents.forEach((agent) => {
+      initialMap.set(agent.id, [agent.position[0], agent.position[1]]);
+    });
+    persistedPositionsRef.current = new Map(initialMap);
+    latestPositionsRef.current = new Map(initialMap);
     setAgents(initialAgents);
   }, [initialAgents]);
+
+  useEffect(() => {
+    const map = new Map<string, [number, number]>();
+    agents.forEach((agent) => {
+      map.set(agent.id, [agent.position[0], agent.position[1]]);
+    });
+    latestPositionsRef.current = map;
+  }, [agents]);
 
   const rows = scene.dimensions.height;
   const cols = scene.dimensions.width;
@@ -328,6 +346,31 @@ const drawBuildings = useCallback(
       cancelAnimationFrame(animationFrame);
     };
   }, [cols, rows, wrapCoord]);
+
+  const persistAgentPosition = useCallback((agentId: string, position: [number, number]) => {
+    void gameApi
+      .updateAgentPosition(agentId, position)
+      .catch((error) => console.warn('failed to persist agent position', agentId, error));
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      const EPSILON = 0.05;
+      latestPositionsRef.current.forEach((pos, id) => {
+        if (id !== 'ares-01') {
+          return;
+        }
+        const prev = persistedPositionsRef.current.get(id);
+        if (!prev || Math.abs(prev[0] - pos[0]) > EPSILON || Math.abs(prev[1] - pos[1]) > EPSILON) {
+          const snapshot: [number, number] = [pos[0], pos[1]];
+          persistedPositionsRef.current.set(id, snapshot);
+          persistAgentPosition(id, snapshot);
+        }
+      });
+    }, 500);
+
+    return () => window.clearInterval(interval);
+  }, [persistAgentPosition]);
 
   useEffect(() => {
     const handleAgentCommand = (event: Event) => {
