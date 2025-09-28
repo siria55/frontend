@@ -201,52 +201,6 @@ export default function MarsPage() {
     };
   }, [wsEndpoint, buildEnergyItems]);
 
-  useEffect(() => {
-    const tickMs = 1000;
-    const seconds = tickMs / 1000;
-    const drainFactor = 0.002;
-    let cancelled = false;
-    let ticking = false;
-
-    const advanceEnergy = async () => {
-      if (ticking || cancelled) return;
-      ticking = true;
-      try {
-        const response = await fetch(`${backendBaseUrl}/v1/game/scene/energy/tick`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ seconds, drainFactor })
-        });
-        if (!response.ok) {
-          throw new Error(`failed to advance energy state: ${response.status}`);
-        }
-        const payload: SceneDefinition = await response.json();
-        if (!cancelled) {
-          setScene(payload);
-          setEnergyItems(buildEnergyItems(payload));
-        }
-      } catch (error) {
-        if (!cancelled) {
-          console.warn('failed to advance energy state', error);
-        }
-      } finally {
-        ticking = false;
-      }
-    };
-
-    const interval = setInterval(() => {
-      void advanceEnergy();
-    }, tickMs);
-
-    // 组件挂载后立即尝试推进一次，避免等完整周期
-    void advanceEnergy();
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [backendBaseUrl, buildEnergyItems]);
-
   const handleZoomChange = useCallback((value: number) => {
     setViewportZoom(Math.max(1, value));
   }, []);
