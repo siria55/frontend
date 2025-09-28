@@ -118,6 +118,7 @@ export default function MarsPage() {
       const applyPayload = (text: string) => {
         try {
           const payload: SceneDefinition = JSON.parse(text);
+          console.log('[mars-stream] scene update', payload);
           setScene(payload);
           setSceneVersion((version) => version + 1);
           setSceneLoading(false);
@@ -158,6 +159,7 @@ export default function MarsPage() {
       }
 
       socket.onopen = () => {
+        console.log('[mars-stream] scene websocket open');
         setSceneError(null);
       };
 
@@ -167,7 +169,8 @@ export default function MarsPage() {
         console.warn('scene websocket error', event);
       };
 
-      socket.onclose = () => {
+      socket.onclose = (event) => {
+        console.warn('[mars-stream] scene websocket closed', event);
         socket = null;
         if (!closing) {
           scheduleReconnect();
@@ -186,7 +189,11 @@ export default function MarsPage() {
         const ref = socket;
         socket = null;
         ref.onclose = null;
-        ref.close();
+        if (ref.readyState === WebSocket.OPEN || ref.readyState === WebSocket.CLOSING) {
+          ref.close();
+        } else if (ref.readyState === WebSocket.CONNECTING) {
+          ref.addEventListener('open', () => ref.close(), { once: true });
+        }
       }
     };
   }, [wsEndpoint]);

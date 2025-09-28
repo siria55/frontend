@@ -16,7 +16,8 @@ const buildUrl = (path: string, baseUrl: string = DEFAULT_BASE_URL) => {
   if (!path.startsWith('/')) {
     throw new Error(`API path must start with '/' - received "${path}"`);
   }
-  return `${baseUrl}${path}`;
+  const url = new URL(path, baseUrl);
+  return url.toString();
 };
 
 const parseJson = async (response: Response) => {
@@ -74,9 +75,9 @@ export const apiClient = {
     if (!path.startsWith('/')) {
       throw new Error(`WebSocket path must start with '/' - received "${path}"`);
     }
-    const httpUrl = new URL(baseUrl);
-    const wsProtocol = httpUrl.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${wsProtocol}//${httpUrl.host}${path}`;
+    const url = new URL(path, baseUrl);
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    return url.toString();
   }
 };
 
