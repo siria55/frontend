@@ -8,6 +8,7 @@ import AgentControlPad from '@/components/AgentControlPad';
 import EnergyStatus, { EnergyInfo, type EnergySummary } from '@/components/EnergyStatus';
 import CollapsiblePanel from '@/components/CollapsiblePanel';
 import ViewportZoomControl from '@/components/ViewportZoomControl';
+import AgentPositionSummary from '@/components/AgentPositionSummary';
 import { gameApi } from '@/lib/api/game';
 import type { SceneDefinition } from '@/types/scene';
 
@@ -296,6 +297,7 @@ export default function MarsPage() {
         <CollapsiblePanel title="能源概览">
           <EnergyStatus key={sceneVersion} items={energyItems} summary={energySummary} />
         </CollapsiblePanel>
+        {scene ? <AgentPositionSummary agentId="ares-01" scene={scene} /> : null}
         </div>
         <div
           style={{

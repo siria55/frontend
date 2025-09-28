@@ -168,6 +168,7 @@ export default function MarsSceneCanvas({ scene, zoom }: MarsSceneCanvasProps) {
   const { width, height } = useViewportSize();
 const persistedPositionsRef = useRef<Map<string, PersistedEntry>>(new Map());
 const latestPositionsRef = useRef<Map<string, [number, number]>>(new Map());
+const lastSyncedPositionsRef = useRef<Map<string, [number, number]>>(new Map());
   const logAgentAction = useCallback(
     async (agentId: string, action: AgentAction, origin: string) => {
       try {
@@ -239,7 +240,11 @@ const initialAgents = useMemo<AgentState[]>(
 
     const latest = new Map<string, [number, number]>();
     refreshedAgents.forEach((agent) => {
-      latest.set(agent.id, [agent.position[0], agent.position[1]]);
+      const pos: [number, number] = [agent.position[0], agent.position[1]];
+      latest.set(agent.id, pos);
+      if (!lastSyncedPositionsRef.current.has(agent.id)) {
+        lastSyncedPositionsRef.current.set(agent.id, pos);
+      }
     });
     latestPositionsRef.current = latest;
 
@@ -383,6 +388,7 @@ const drawBuildings = useCallback(
               position: wrappedPosition,
               updatedAt: now
             });
+            latestPositionsRef.current.set(agent.id, [wrappedPosition[0], wrappedPosition[1]]);
           }
 
           return {
@@ -410,9 +416,15 @@ const drawBuildings = useCallback(
   }, [cols, rows, wrapCoord]);
 
   const persistAgentPosition = useCallback((agentId: string, position: [number, number]) => {
-    void gameApi
+    return gameApi
       .updateAgentPosition(agentId, position)
-      .catch((error) => console.warn('failed to persist agent position', agentId, error));
+      .then(() => {
+        lastSyncedPositionsRef.current.set(agentId, [position[0], position[1]]);
+      })
+      .catch((error) => {
+        console.warn('failed to persist agent position', agentId, error);
+        throw error;
+      });
   }, []);
 
   useEffect(() => {
@@ -422,12 +434,10 @@ const drawBuildings = useCallback(
         if (id !== 'ares-01') {
           return;
         }
-        const prev = persistedPositionsRef.current.get(id);
-        if (!prev || Math.abs(prev.position[0] - pos[0]) > EPSILON || Math.abs(prev.position[1] - pos[1]) > EPSILON) {
+        const lastSynced = lastSyncedPositionsRef.current.get(id);
+        if (!lastSynced || Math.abs(lastSynced[0] - pos[0]) > EPSILON || Math.abs(lastSynced[1] - pos[1]) > EPSILON) {
           const snapshot: [number, number] = [pos[0], pos[1]];
-          const now = Date.now();
-          persistedPositionsRef.current.set(id, { position: snapshot, updatedAt: now });
-          persistAgentPosition(id, snapshot);
+          void persistAgentPosition(id, snapshot);
         }
       });
     }, 500);
@@ -464,15 +474,16 @@ const drawBuildings = useCallback(
               );
               const now = Date.now();
               const snapshot: [number, number] = [rx, ry];
-              persistedPositionsRef.current.set(payload.relocation.id, {
-                position: snapshot,
-                updatedAt: now
-              });
-              latestPositionsRef.current.set(payload.relocation.id, snapshot);
-              setAgents((prev) =>
-                prev.map((agent) =>
-                  agent.id === payload.relocation.id
-                    ? {
+            persistedPositionsRef.current.set(payload.relocation.id, {
+              position: snapshot,
+              updatedAt: now
+            });
+            latestPositionsRef.current.set(payload.relocation.id, snapshot);
+            lastSyncedPositionsRef.current.set(payload.relocation.id, snapshot);
+            setAgents((prev) =>
+              prev.map((agent) =>
+                agent.id === payload.relocation.id
+                  ? {
                         ...agent,
                         position: snapshot,
                         updatedAt: now
