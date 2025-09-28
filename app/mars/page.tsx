@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 
 import CommandConsole from '@/components/CommandConsole';
@@ -93,6 +93,113 @@ export default function MarsPage() {
   useEffect(() => {
     fetchScene();
   }, [fetchScene]);
+
+  const wsEndpoint = useMemo(() => {
+    try {
+      const url = new URL(sceneEndpoint);
+      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+      url.pathname = '/v1/game/scene/stream';
+      url.search = '';
+      return url.toString();
+    } catch (error) {
+      console.warn('failed to resolve scene websocket endpoint', error);
+      return '';
+    }
+  }, [sceneEndpoint]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    if (!wsEndpoint) {
+      return;
+    }
+
+    let socket: WebSocket | null = null;
+    let closing = false;
+    let reconnectTimer: number | undefined;
+
+    const scheduleReconnect = () => {
+      if (closing) return;
+      reconnectTimer = window.setTimeout(connect, 2000);
+    };
+
+    const handleMessage = (event: MessageEvent) => {
+      const applyPayload = (text: string) => {
+        try {
+          const payload: SceneDefinition = JSON.parse(text);
+          setScene(payload);
+          setEnergyItems(buildEnergyItems(payload));
+          setSceneLoading(false);
+          setSceneError(null);
+        } catch (error) {
+          console.warn('failed to parse scene websocket payload', error);
+        }
+      };
+
+      if (typeof event.data === 'string') {
+        applyPayload(event.data);
+        return;
+      }
+
+      if (event.data instanceof Blob) {
+        void event.data
+          .text()
+          .then(applyPayload)
+          .catch((error) => {
+            console.warn('failed to read websocket blob', error);
+          });
+        return;
+      }
+
+      if (event.data instanceof ArrayBuffer) {
+        const text = new TextDecoder().decode(new Uint8Array(event.data));
+        applyPayload(text);
+      }
+    };
+
+    const connect = () => {
+      try {
+        socket = new WebSocket(wsEndpoint);
+      } catch (error) {
+        console.warn('failed to open scene websocket', error);
+        scheduleReconnect();
+        return;
+      }
+
+      socket.onopen = () => {
+        setSceneError(null);
+      };
+
+      socket.onmessage = handleMessage;
+
+      socket.onerror = (event) => {
+        console.warn('scene websocket error', event);
+      };
+
+      socket.onclose = () => {
+        socket = null;
+        if (!closing) {
+          scheduleReconnect();
+        }
+      };
+    };
+
+    connect();
+
+    return () => {
+      closing = true;
+      if (reconnectTimer !== undefined) {
+        window.clearTimeout(reconnectTimer);
+      }
+      if (socket) {
+        const ref = socket;
+        socket = null;
+        ref.onclose = null;
+        ref.close();
+      }
+    };
+  }, [wsEndpoint, buildEnergyItems]);
 
   useEffect(() => {
     const tickMs = 1000;
