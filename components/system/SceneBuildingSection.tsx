@@ -3,6 +3,7 @@ import type { ChangeEvent } from 'react';
 import type { SceneBuilding } from '@/types/scene';
 import type { SceneBuildingPayload } from '@/lib/api/system';
 import {
+  dangerButtonStyle,
   inputStyle,
   labelStyle,
   listStyle,
@@ -74,6 +75,7 @@ const isDirty = (building: SceneBuilding, form: SceneBuildingForm): boolean => {
 type Props = {
   buildings: SceneBuilding[];
   onSave: (id: string, payload: SceneBuildingPayload) => void;
+  onDelete: (id: string) => void;
   onClearStatus: () => void;
   onValidationError: (message: string) => void;
   isPending: (id: string) => boolean;
@@ -84,6 +86,7 @@ type Props = {
 export function SceneBuildingSection({
   buildings,
   onSave,
+  onDelete,
   onClearStatus,
   onValidationError,
   isPending,
@@ -151,6 +154,18 @@ export function SceneBuildingSection({
       resetForm(id);
     },
     [onClearStatus, resetForm]
+  );
+
+  const handleDelete = useCallback(
+    (building: SceneBuilding) => {
+      onClearStatus();
+      const confirmed = window.confirm(`确定删除建筑「${building.label}」吗？此操作不可撤回。`);
+      if (!confirmed) {
+        return;
+      }
+      onDelete(building.id);
+    },
+    [onClearStatus, onDelete]
   );
 
   const HeadingTag: 'h2' | 'h3' = framed ? 'h2' : 'h3';
@@ -324,6 +339,14 @@ export function SceneBuildingSection({
                   style={secondaryButtonStyle(busy || !dirty)}
                 >
                   重置
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(building)}
+                  disabled={busy}
+                  style={dangerButtonStyle(busy)}
+                >
+                  删除
                 </button>
               </div>
             </li>

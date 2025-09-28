@@ -220,7 +220,8 @@ export default function SystemPage() {
   );
 
   const isSceneBuildingPending = useCallback(
-    (id: string) => isPending(pendingKey('scene-building', id)),
+    (id: string) =>
+      isPending(pendingKey('scene-building', id)) || isPending(pendingKey('scene-building-delete', id)),
     [isPending]
   );
 
@@ -260,6 +261,18 @@ export default function SystemPage() {
         pendingKey('scene-building', id),
         () => systemApi.updateSceneBuilding(id, payload),
         '场景建筑已保存'
+      );
+    },
+    [clearStatus, performSnapshotUpdate]
+  );
+
+  const deleteSceneBuilding = useCallback(
+    (id: string) => {
+      clearStatus();
+      void performSnapshotUpdate(
+        pendingKey('scene-building-delete', id),
+        () => systemApi.deleteSceneBuilding(id),
+        '场景建筑已删除'
       );
     },
     [clearStatus, performSnapshotUpdate]
@@ -465,6 +478,7 @@ export default function SystemPage() {
                 <SceneBuildingSection
                   buildings={snapshot.buildings}
                   onSave={saveSceneBuilding}
+                  onDelete={deleteSceneBuilding}
                   onClearStatus={clearStatus}
                   onValidationError={handleValidationError}
                   isPending={isSceneBuildingPending}

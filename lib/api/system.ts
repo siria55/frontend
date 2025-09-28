@@ -75,6 +75,8 @@ export const systemApi = {
     apiClient.put<SystemSnapshot>(`/v1/system/templates/agents/${encodeId(id)}`, payload),
   updateSceneBuilding: (id: string, payload: SceneBuildingPayload) =>
     apiClient.put<SystemSnapshot>(`/v1/system/scene/buildings/${encodeId(id)}`, payload),
+  deleteSceneBuilding: (id: string) =>
+    apiClient.delete<SystemSnapshot>(`/v1/system/scene/buildings/${encodeId(id)}`),
   updateSceneAgent: (id: string, payload: SceneAgentPayload) =>
     apiClient.put<SystemSnapshot>(`/v1/system/scene/agents/${encodeId(id)}`, payload)
 };

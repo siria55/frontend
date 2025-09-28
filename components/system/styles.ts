@@ -61,3 +61,14 @@ export const secondaryButtonStyle = (disabled: boolean): CSSProperties => ({
   cursor: disabled ? 'not-allowed' : 'pointer',
   opacity: disabled ? 0.5 : 1
 });
+
+export const dangerButtonStyle = (disabled: boolean): CSSProperties => ({
+  padding: '0.5rem 1.05rem',
+  borderRadius: '10px',
+  border: '1px solid rgba(255, 122, 122, 0.45)',
+  background: disabled ? 'rgba(255, 92, 112, 0.35)' : 'linear-gradient(120deg, #ff4d6d, #ff7d92)',
+  color: '#ffffff',
+  fontWeight: 600,
+  cursor: disabled ? 'not-allowed' : 'pointer',
+  opacity: disabled ? 0.6 : 1
+});
