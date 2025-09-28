@@ -67,6 +67,7 @@ const DEFAULT_AGENT_COLOR = 0x7b9bff;
 const TERRAIN_COLOR = 0xc86f32;
 
 const SCENE_SYNC_EVENT = 'mars-scene-sync';
+const SYSTEM_LOG_EVENT = 'mars-system-log';
 
 const isMovementAction = (value: string): value is AgentBehavior =>
   (MOVEMENT_ACTIONS as readonly string[]).includes(value);
@@ -444,7 +445,7 @@ const drawBuildings = useCallback(
 
       if (action === 'maintain_energy') {
         void logAgentAction(agentId, action, issuedBy);
-        void gameApi
+      void gameApi
           .maintainEnergy(agentId)
           .then((payload) => {
             console.log('[mars-agent] maintain energy result', payload);
@@ -453,6 +454,33 @@ const drawBuildings = useCallback(
                 detail: payload.scene
               })
             );
+            if (payload.relocation) {
+              const [rx, ry] = payload.relocation.position;
+              const message = `系统提示：${payload.relocation.id} 自动移至 (${Math.round(rx)}, ${Math.round(ry)}) 以部署太阳能塔`;
+              window.dispatchEvent(
+                new CustomEvent<string>(SYSTEM_LOG_EVENT, {
+                  detail: message
+                })
+              );
+              const now = Date.now();
+              const snapshot: [number, number] = [rx, ry];
+              persistedPositionsRef.current.set(payload.relocation.id, {
+                position: snapshot,
+                updatedAt: now
+              });
+              latestPositionsRef.current.set(payload.relocation.id, snapshot);
+              setAgents((prev) =>
+                prev.map((agent) =>
+                  agent.id === payload.relocation.id
+                    ? {
+                        ...agent,
+                        position: snapshot,
+                        updatedAt: now
+                      }
+                    : agent
+                )
+              );
+            }
           })
           .catch((error) => {
             console.warn('failed to maintain energy balance', error);

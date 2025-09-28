@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 
 export interface CommandConsoleProps {
   title?: string;
@@ -23,6 +23,8 @@ const panelStyle: React.CSSProperties = {
   gap: '0.6rem'
 };
 
+const SYSTEM_LOG_EVENT = 'mars-system-log';
+
 export default function CommandConsole({
   title,
   subtitle,
@@ -37,6 +39,19 @@ export default function CommandConsole({
   const effectiveSubtitle = subtitle ?? '指挥中心命令';
   const effectivePlaceholder = placeholder ?? '例如：扫描资源，返回状态';
   const effectiveMaxLogs = useMemo(() => (maxLogs && maxLogs > 0 ? maxLogs : 5), [maxLogs]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<string>).detail;
+      if (!detail) return;
+      setLogs((prev) => [detail, ...prev].slice(0, effectiveMaxLogs));
+    };
+
+    window.addEventListener(SYSTEM_LOG_EVENT, handler as EventListener);
+    return () => {
+      window.removeEventListener(SYSTEM_LOG_EVENT, handler as EventListener);
+    };
+  }, [effectiveMaxLogs]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

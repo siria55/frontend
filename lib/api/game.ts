@@ -2,12 +2,18 @@ import type { SceneBuilding, SceneDefinition } from '@/types/scene';
 
 import { apiClient } from './client';
 
+export interface AgentRelocation {
+  id: string;
+  position: [number, number];
+}
+
 export interface MaintainEnergyResponse {
   scene: SceneDefinition;
   created: SceneBuilding[];
   netFlowBefore: number;
   netFlowAfter: number;
   towersBuilt: number;
+  relocation?: AgentRelocation;
 }
 
 export const gameApi = {
