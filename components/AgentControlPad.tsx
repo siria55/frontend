@@ -80,6 +80,27 @@ export default function AgentControlPad({ agentId }: AgentControlPadProps) {
             {item.label}
           </button>
         ))}
+        <button
+          type="button"
+          style={{
+            ...buttonStyle,
+            gridColumn: 'span 2',
+            background: 'linear-gradient(135deg, rgba(62, 89, 166, 0.95), rgba(95, 128, 255, 0.85))',
+            border: '1px solid rgba(146, 178, 255, 0.55)'
+          }}
+          onClick={() => handleClick('maintain_energy')}
+          onMouseDown={(event) => {
+            event.currentTarget.style.transform = 'scale(0.97)';
+          }}
+          onMouseUp={(event) => {
+            event.currentTarget.style.transform = 'scale(1)';
+          }}
+          onMouseLeave={(event) => {
+            event.currentTarget.style.transform = 'scale(1)';
+          }}
+        >
+          保持电量不减少
+        </button>
       </div>
     </div>
   );

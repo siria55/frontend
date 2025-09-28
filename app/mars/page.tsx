@@ -38,7 +38,11 @@ export default function MarsPage() {
         { action: 'move_left', keywords: ['left', '向左', '左移', '左转', '左', '←'] },
         { action: 'move_right', keywords: ['right', '向右', '右移', '右转', '右', '→'] },
         { action: 'move_up', keywords: ['up', '向上', '上移', '上升', '上', '↑'] },
-        { action: 'move_down', keywords: ['down', '向下', '下移', '下降', '下', '↓'] }
+        { action: 'move_down', keywords: ['down', '向下', '下移', '下降', '下', '↓'] },
+        {
+          action: 'maintain_energy',
+          keywords: ['保持电量', '维持电量', '保持能源', 'maintain energy', 'energy stable']
+        }
       ] as const;
 
       const match = actionTable.find((entry) =>
@@ -118,6 +122,26 @@ export default function MarsPage() {
   useEffect(() => {
     fetchScene();
   }, [fetchScene]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const handleSceneSync = (event: Event) => {
+      const payload = (event as CustomEvent<SceneDefinition | null>).detail;
+      if (!payload) {
+        return;
+      }
+      setScene(payload);
+      setSceneVersion((version) => version + 1);
+      setSceneLoading(false);
+      setSceneError(null);
+    };
+    window.addEventListener('mars-scene-sync', handleSceneSync as EventListener);
+    return () => {
+      window.removeEventListener('mars-scene-sync', handleSceneSync as EventListener);
+    };
+  }, []);
 
   const wsEndpoint = useMemo(() => {
     try {

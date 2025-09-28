@@ -18,7 +18,9 @@ import { agentsApi } from '@/lib/api/agents';
 import { gameApi } from '@/lib/api/game';
 import type { SceneDefinition, SceneBuilding, SceneAgent } from '@/types/scene';
 
-type AgentAction = 'move_left' | 'move_right' | 'move_up' | 'move_down';
+const MOVEMENT_ACTIONS = ['move_left', 'move_right', 'move_up', 'move_down'] as const;
+type AgentBehavior = (typeof MOVEMENT_ACTIONS)[number];
+type AgentAction = AgentBehavior | 'maintain_energy';
 type AgentCommandDetail = {
   agentId: string;
   action: AgentAction;
@@ -30,7 +32,7 @@ type AgentState = {
   label: string;
   position: [number, number];
   color?: number;
-  actions: AgentAction[];
+  actions: AgentBehavior[];
   updatedAt?: number;
 };
 
@@ -63,6 +65,11 @@ const BUILDING_COLOR = 0xd7dce4;
 const GRID_COLOR = 0x2a1f36;
 const DEFAULT_AGENT_COLOR = 0x7b9bff;
 const TERRAIN_COLOR = 0xc86f32;
+
+const SCENE_SYNC_EVENT = 'mars-scene-sync';
+
+const isMovementAction = (value: string): value is AgentBehavior =>
+  (MOVEMENT_ACTIONS as readonly string[]).includes(value);
 
 const buildingLabelStyle = new TextStyle({
   fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
@@ -184,12 +191,17 @@ const latestPositionsRef = useRef<Map<string, [number, number]>>(new Map());
 
 const initialAgents = useMemo<AgentState[]>(
   () =>
-    (scene.agents ?? []).map((agent: SceneAgent) => ({
-      ...agent,
-      position: ensurePosition(agent.position),
-      actions: (agent.actions as AgentAction[] | undefined) ?? [],
-      updatedAt: agent.updatedAt ? Date.parse(agent.updatedAt) : undefined
-    })),
+    (scene.agents ?? []).map((agent: SceneAgent) => {
+      const position = ensurePosition(agent.position);
+      const rawActions = (agent.actions ?? []) as string[];
+      const behaviors = rawActions.filter(isMovementAction);
+      return {
+        ...agent,
+        position,
+        actions: behaviors,
+        updatedAt: agent.updatedAt ? Date.parse(agent.updatedAt) : undefined
+      };
+    }),
   [scene]
 );
 
@@ -430,10 +442,33 @@ const drawBuildings = useCallback(
 
       const issuedBy = origin ?? 'mars_ui';
 
+      if (action === 'maintain_energy') {
+        void logAgentAction(agentId, action, issuedBy);
+        void gameApi
+          .maintainEnergy(agentId)
+          .then((payload) => {
+            console.log('[mars-agent] maintain energy result', payload);
+            window.dispatchEvent(
+              new CustomEvent<SceneDefinition>(SCENE_SYNC_EVENT, {
+                detail: payload.scene
+              })
+            );
+          })
+          .catch((error) => {
+            console.warn('failed to maintain energy balance', error);
+          });
+        return;
+      }
+
+      if (!isMovementAction(action)) {
+        void logAgentAction(agentId, action, issuedBy);
+        return;
+      }
+
       setAgents((prev) =>
         prev.map((agent) => {
           if (agent.id !== agentId) return agent;
-          const nextActions: AgentAction[] = [action];
+          const nextActions: AgentBehavior[] = [action];
           return {
             ...agent,
             actions: nextActions
