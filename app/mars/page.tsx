@@ -297,7 +297,6 @@ export default function MarsPage() {
         <CollapsiblePanel title="能源概览">
           <EnergyStatus key={sceneVersion} items={energyItems} summary={energySummary} />
         </CollapsiblePanel>
-        {scene ? <AgentPositionSummary agentId="ares-01" scene={scene} /> : null}
         </div>
         <div
           style={{
@@ -313,6 +312,7 @@ export default function MarsPage() {
           <CollapsiblePanel title="视野缩放">
             <ViewportZoomControl min={1} max={3} value={viewportZoom} onChange={handleZoomChange} />
           </CollapsiblePanel>
+          {scene ? <AgentPositionSummary agentId="ares-01" scene={scene} /> : null}
         </div>
         <div
           style={{

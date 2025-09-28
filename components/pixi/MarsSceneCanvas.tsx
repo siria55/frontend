@@ -276,6 +276,26 @@ const initialAgents = useMemo<AgentState[]>(
     return mod >= 0 ? mod : mod + size;
   }, []);
 
+  const isBlocked = useCallback(
+    (x: number, y: number) => {
+      return buildings.some((building) => {
+        const [bx, by, bw, bh] = building.rect;
+        return x >= bx && x < bx + bw && y >= by && y < by + bh;
+      });
+    },
+    [buildings]
+  );
+
+  const clampWithinBounds = useCallback(
+    (value: number, max: number) => {
+      if (max <= 0) return value;
+      if (value < 0) return 0;
+      if (value >= max) return max - Number.EPSILON;
+      return value;
+    },
+    []
+  );
+
   const drawBackground = useCallback(
     (g: PixiGraphics) => {
       g.clear();
@@ -359,6 +379,8 @@ const drawBuildings = useCallback(
 
           let nextX = agent.position[0];
           let nextY = agent.position[1];
+          const width = 1;
+          const height = 1;
 
           if (isPlayer) {
             if (keyState.w) nextY -= speed;
@@ -377,7 +399,14 @@ const drawBuildings = useCallback(
             return agent;
           }
 
-          const wrappedPosition: [number, number] = [wrapCoord(nextX, cols), wrapCoord(nextY, rows)];
+          nextX = clampWithinBounds(nextX, cols);
+          nextY = clampWithinBounds(nextY, rows);
+
+          if (isBlocked(nextX, nextY)) {
+            return agent;
+          }
+
+          const wrappedPosition: [number, number] = [nextX, nextY];
           if (wrappedPosition[0] === agent.position[0] && wrappedPosition[1] === agent.position[1]) {
             return agent;
           }
@@ -413,7 +442,7 @@ const drawBuildings = useCallback(
       window.removeEventListener('keyup', handleKeyUp);
       cancelAnimationFrame(animationFrame);
     };
-  }, [cols, rows, wrapCoord]);
+  }, [clampWithinBounds, cols, isBlocked, rows]);
 
   const persistAgentPosition = useCallback((agentId: string, position: [number, number]) => {
     return gameApi
