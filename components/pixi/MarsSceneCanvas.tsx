@@ -31,6 +31,12 @@ type AgentState = {
   position: [number, number];
   color?: number;
   actions: AgentAction[];
+  updatedAt?: number;
+};
+
+type PersistedEntry = {
+  position: [number, number];
+  updatedAt: number;
 };
 
 type ViewportComponentProps = {
@@ -77,7 +83,7 @@ const ensurePosition = (position: number[]): [number, number] => {
   if (position.length !== 2) {
     throw new Error('Mars 场景 Agent 坐标应包含 2 个元素');
   }
-  return [position[0], position[1]];
+  return [Number(position[0]), Number(position[1])];
 };
 
 const PixiViewportComponent = PixiComponent<ViewportComponentProps, Viewport>('PixiViewport', {
@@ -152,8 +158,8 @@ const useViewportSize = () => {
 
 export default function MarsSceneCanvas({ scene, zoom }: MarsSceneCanvasProps) {
   const { width, height } = useViewportSize();
-  const persistedPositionsRef = useRef<Map<string, [number, number]>>(new Map());
-  const latestPositionsRef = useRef<Map<string, [number, number]>>(new Map());
+const persistedPositionsRef = useRef<Map<string, PersistedEntry>>(new Map());
+const latestPositionsRef = useRef<Map<string, [number, number]>>(new Map());
   const logAgentAction = useCallback(
     async (agentId: string, action: AgentAction, origin: string) => {
       try {
@@ -176,26 +182,55 @@ export default function MarsSceneCanvas({ scene, zoom }: MarsSceneCanvasProps) {
     [scene]
   );
 
-  const initialAgents = useMemo<AgentState[]>(
-    () =>
-      (scene.agents ?? []).map((agent: SceneAgent) => ({
-        ...agent,
-        position: ensurePosition(agent.position),
-        actions: (agent.actions as AgentAction[] | undefined) ?? []
-      })),
-    [scene]
-  );
+const initialAgents = useMemo<AgentState[]>(
+  () =>
+    (scene.agents ?? []).map((agent: SceneAgent) => ({
+      ...agent,
+      position: ensurePosition(agent.position),
+      actions: (agent.actions as AgentAction[] | undefined) ?? [],
+      updatedAt: agent.updatedAt ? Date.parse(agent.updatedAt) : undefined
+    })),
+  [scene]
+);
 
   const [agents, setAgents] = useState<AgentState[]>(initialAgents);
 
   useEffect(() => {
-    const initialMap = new Map<string, [number, number]>();
-    initialAgents.forEach((agent) => {
-      initialMap.set(agent.id, [agent.position[0], agent.position[1]]);
+    const nextPersisted = new Map(persistedPositionsRef.current);
+
+    const refreshedAgents = initialAgents.map((agent) => {
+      const incomingPos: [number, number] = [agent.position[0], agent.position[1]];
+      const incomingTs = agent.updatedAt ?? 0;
+      const stored = nextPersisted.get(agent.id);
+
+      if (!stored || incomingTs > stored.updatedAt) {
+        nextPersisted.set(agent.id, { position: incomingPos, updatedAt: incomingTs });
+        return agent;
+      }
+
+      return {
+        ...agent,
+        position: stored.position,
+        updatedAt: stored.updatedAt
+      };
     });
-    persistedPositionsRef.current = new Map(initialMap);
-    latestPositionsRef.current = new Map(initialMap);
-    setAgents(initialAgents);
+
+    const validIds = new Set(refreshedAgents.map((agent) => agent.id));
+    Array.from(nextPersisted.keys()).forEach((id) => {
+      if (!validIds.has(id)) {
+        nextPersisted.delete(id);
+      }
+    });
+
+    persistedPositionsRef.current = nextPersisted;
+
+    const latest = new Map<string, [number, number]>();
+    refreshedAgents.forEach((agent) => {
+      latest.set(agent.id, [agent.position[0], agent.position[1]]);
+    });
+    latestPositionsRef.current = latest;
+
+    setAgents(refreshedAgents);
   }, [initialAgents]);
 
   useEffect(() => {
@@ -324,10 +359,24 @@ const drawBuildings = useCallback(
             return agent;
           }
 
+          const wrappedPosition: [number, number] = [wrapCoord(nextX, cols), wrapCoord(nextY, rows)];
+          if (wrappedPosition[0] === agent.position[0] && wrappedPosition[1] === agent.position[1]) {
+            return agent;
+          }
+
+          const now = Date.now();
+          if (isPlayer) {
+            persistedPositionsRef.current.set(agent.id, {
+              position: wrappedPosition,
+              updatedAt: now
+            });
+          }
+
           return {
             ...agent,
             actions: Array.from(persistent),
-            position: [wrapCoord(nextX, cols), wrapCoord(nextY, rows)] as [number, number]
+            position: wrappedPosition,
+            updatedAt: now
           };
         })
       );
@@ -361,9 +410,10 @@ const drawBuildings = useCallback(
           return;
         }
         const prev = persistedPositionsRef.current.get(id);
-        if (!prev || Math.abs(prev[0] - pos[0]) > EPSILON || Math.abs(prev[1] - pos[1]) > EPSILON) {
+        if (!prev || Math.abs(prev.position[0] - pos[0]) > EPSILON || Math.abs(prev.position[1] - pos[1]) > EPSILON) {
           const snapshot: [number, number] = [pos[0], pos[1]];
-          persistedPositionsRef.current.set(id, snapshot);
+          const now = Date.now();
+          persistedPositionsRef.current.set(id, { position: snapshot, updatedAt: now });
           persistAgentPosition(id, snapshot);
         }
       });

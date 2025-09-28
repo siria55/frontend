@@ -167,38 +167,42 @@ export function BuildingTemplateSection({
                   gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))'
                 }}
               >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                  <span style={labelStyle}>能源类型</span>
-                  <select
-                    value={form.energyType}
-                    onChange={handleFieldChange(tpl.id, 'energyType')}
-                    style={inputStyle}
-                  >
-                    <option value="">（无）</option>
-                    <option value="storage">储能</option>
-                    <option value="consumer">耗能</option>
-                  </select>
-                </div>
+               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                 <span style={labelStyle}>能源类型</span>
+                 <select
+                   value={form.energyType}
+                   onChange={handleFieldChange(tpl.id, 'energyType')}
+                   style={inputStyle}
+                 >
+                   <option value="">（无）</option>
+                   <option value="storage">储能</option>
+                   <option value="consumer">耗能</option>
+                 </select>
+               </div>
                 {form.energyType === 'storage' && (
                   <>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                      <span style={labelStyle}>容量（单位）</span>
-                      <input
-                        type="number"
-                        value={form.energyCapacity}
-                        onChange={handleFieldChange(tpl.id, 'energyCapacity')}
-                        style={inputStyle}
-                      />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                      <span style={labelStyle}>当前（单位）</span>
-                      <input
-                        type="number"
-                        value={form.energyCurrent}
-                        onChange={handleFieldChange(tpl.id, 'energyCurrent')}
-                        style={inputStyle}
-                      />
-                    </div>
+                    {(tpl.energy?.capacity != null || tpl.energy?.current != null || form.energyCapacity.trim() !== '' || form.energyCurrent.trim() !== '') && (
+                      <>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                          <span style={labelStyle}>容量（单位）</span>
+                          <input
+                            type="number"
+                            value={form.energyCapacity}
+                            onChange={handleFieldChange(tpl.id, 'energyCapacity')}
+                            style={inputStyle}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                          <span style={labelStyle}>当前（单位）</span>
+                          <input
+                            type="number"
+                            value={form.energyCurrent}
+                            onChange={handleFieldChange(tpl.id, 'energyCurrent')}
+                            style={inputStyle}
+                          />
+                        </div>
+                      </>
+                    )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                       <span style={labelStyle}>输出（单位/小时）</span>
                       <input

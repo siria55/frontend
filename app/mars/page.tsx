@@ -83,11 +83,13 @@ export default function MarsPage() {
         totalConsumption += item.rate ?? 0;
       } else if (item.type === 'storage') {
         totalOutput += item.output ?? 0;
-        storageCount += 1;
+        if ((item.capacity ?? 0) > 0) {
+          storageCount += 1;
+        }
       }
     });
     const netFlow = totalOutput - totalConsumption;
-    const perStorageRate = storageCount > 0 ? Math.abs(netFlow) : 0;
+    const perStorageRate = storageCount > 0 ? Math.abs(netFlow) / storageCount : 0;
     const summary: EnergySummary = {
       totalConsumption,
       totalOutput,

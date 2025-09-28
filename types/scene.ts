@@ -32,6 +32,7 @@ export interface SceneAgent {
   position: number[];
   color?: number;
   actions?: string[];
+  updatedAt?: string;
 }
 
 export interface SceneDefinition {

@@ -38,6 +38,21 @@ export default function EnergyStatus({ items, summary }: EnergyStatusProps) {
         const capacity = item.capacity ?? 0;
         const current = Math.min(item.current ?? 0, capacity);
         const percent = capacity > 0 ? Math.round((current / capacity) * 100) : 0;
+        const isStorageWithCapacity = capacity > 0;
+        if (!isStorageWithCapacity) {
+          const accent = storageColor;
+          return {
+            ...item,
+            display: `输出 ${item.output ?? 0} kW`,
+            percent: undefined,
+            accent,
+            low: false,
+            timestamp,
+            trendLabel: `输出 ${item.output ?? 0} kW/s`,
+            generator: true
+          };
+        }
+
         const accent =
           percent <= 15
             ? storageCriticalColor
@@ -147,25 +162,27 @@ export default function EnergyStatus({ items, summary }: EnergyStatusProps) {
             }}
           >
             <span>{item.display}</span>
-           {item.type === 'storage' ? (
-             <span
-               style={{
-                 display: 'flex',
-                 gap: '0.35rem',
-                 alignItems: 'center',
-                 fontSize: '0.75rem',
-                 color:
-                   summary && summary.netFlow < 0
-                     ? '#ffb4b4'
-                     : '#b4f5c6'
-               }}
-             >
+            {item.type === 'storage' ? (
+              <span
+                style={{
+                  display: 'flex',
+                  gap: '0.35rem',
+                  alignItems: 'center',
+                  fontSize: '0.75rem',
+                  color:
+                    'generator' in item
+                      ? '#d3d4eb'
+                      : summary && summary.netFlow < 0
+                        ? '#ffb4b4'
+                        : '#b4f5c6'
+                }}
+              >
                 <span>{('trendLabel' in item && item.trendLabel) || 'Δ 0 kW/s'}</span>
                 <span style={{ color: '#d3d4eb' }}>· 输出 {item.output ?? 0} kW</span>
               </span>
             ) : null}
           </div>
-          {item.type === 'storage' && item.low ? (
+          {item.type === 'storage' && !('generator' in item) && item.low ? (
             <span style={{ fontSize: '0.75rem', color: '#f7d59c' }}>
               {item.percent !== undefined && item.percent <= 15 ? '电量告急' : '电量偏低'}
             </span>

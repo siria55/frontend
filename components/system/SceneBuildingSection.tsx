@@ -263,24 +263,28 @@ export function SceneBuildingSection({
                 </div>
                 {form.energyType === 'storage' && (
                   <>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                      <span style={labelStyle}>容量（单位）</span>
-                      <input
-                        type="number"
-                        value={form.energyCapacity}
-                        onChange={handleFieldChange(building.id, 'energyCapacity')}
-                        style={inputStyle}
-                      />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                      <span style={labelStyle}>当前（单位）</span>
-                      <input
-                        type="number"
-                        value={form.energyCurrent}
-                        onChange={handleFieldChange(building.id, 'energyCurrent')}
-                        style={inputStyle}
-                      />
-                    </div>
+                    {(building.energy?.capacity != null || building.energy?.current != null || form.energyCapacity.trim() !== '' || form.energyCurrent.trim() !== '') && (
+                      <>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                          <span style={labelStyle}>容量（单位）</span>
+                          <input
+                            type="number"
+                            value={form.energyCapacity}
+                            onChange={handleFieldChange(building.id, 'energyCapacity')}
+                            style={inputStyle}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                          <span style={labelStyle}>当前（单位）</span>
+                          <input
+                            type="number"
+                            value={form.energyCurrent}
+                            onChange={handleFieldChange(building.id, 'energyCurrent')}
+                            style={inputStyle}
+                          />
+                        </div>
+                      </>
+                    )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                       <span style={labelStyle}>输出（单位/小时）</span>
                       <input
