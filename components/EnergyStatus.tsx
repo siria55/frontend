@@ -23,22 +23,25 @@ const consumerColor = '#f0c27b';
 
 export default function EnergyStatus({ items }: EnergyStatusProps) {
   const grouped = useMemo(() => {
+    const timestamp = Date.now();
     return (items ?? []).map((item) => {
       if (item.type === 'storage') {
         const capacity = item.capacity ?? 0;
         const current = Math.min(item.current ?? 0, capacity);
         const percent = capacity > 0 ? Math.round((current / capacity) * 100) : 0;
-        const accent = percent <= 15
-          ? storageCriticalColor
-          : percent <= 35
-            ? storageWarningColor
-            : storageColor;
+        const accent =
+          percent <= 15
+            ? storageCriticalColor
+            : percent <= 35
+              ? storageWarningColor
+              : storageColor;
         return {
           ...item,
           display: `${current}/${capacity} MWh (${percent}%)`,
           percent,
           accent,
-          low: percent <= 35
+          low: percent <= 35,
+          timestamp
         };
       }
       return {
@@ -46,7 +49,8 @@ export default function EnergyStatus({ items }: EnergyStatusProps) {
         display: `${item.rate ?? 0} kW 消耗`,
         accent: consumerColor,
         low: false,
-        percent: undefined
+        percent: undefined,
+        timestamp
       };
     });
   }, [items]);
@@ -68,7 +72,7 @@ export default function EnergyStatus({ items }: EnergyStatusProps) {
     >
       {grouped.map((item) => (
         <li
-          key={item.id}
+          key={`${item.id}-${item.timestamp}`}
           style={{
             padding: '0.5rem 0.65rem',
             borderRadius: '10px',

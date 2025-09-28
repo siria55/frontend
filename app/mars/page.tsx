@@ -19,6 +19,7 @@ export default function MarsPage() {
   const [scene, setScene] = useState<SceneDefinition | null>(null);
   const [sceneError, setSceneError] = useState<string | null>(null);
   const [sceneLoading, setSceneLoading] = useState(true);
+  const [sceneVersion, setSceneVersion] = useState(0);
 
   const dispatchAgentAction = useCallback((agentId: string, action: string) => {
     const event = new CustomEvent('mars-agent-command', {
@@ -50,7 +51,7 @@ export default function MarsPage() {
     [dispatchAgentAction]
   );
 
-  const buildEnergyItems = useCallback((sceneDef: SceneDefinition | null): EnergyInfo[] => {
+  const deriveEnergyItems = useCallback((sceneDef: SceneDefinition | null): EnergyInfo[] => {
     if (!sceneDef) return [];
     return (sceneDef.buildings ?? [])
       .filter((building) => building.energy)
@@ -65,7 +66,7 @@ export default function MarsPage() {
       }));
   }, []);
 
-  const [energyItems, setEnergyItems] = useState<EnergyInfo[]>([]);
+  const energyItems = useMemo(() => deriveEnergyItems(scene), [deriveEnergyItems, scene]);
 
   const backendBaseUrl = (process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, '');
   const sceneEndpoint = `${backendBaseUrl}/v1/game/scene`;
@@ -80,15 +81,14 @@ export default function MarsPage() {
       }
       const payload: SceneDefinition = await response.json();
       setScene(payload);
-      setEnergyItems(buildEnergyItems(payload));
+      setSceneVersion((version) => version + 1);
     } catch (error) {
       setSceneError(error instanceof Error ? error.message : 'unknown error');
       setScene(null);
-      setEnergyItems([]);
     } finally {
       setSceneLoading(false);
     }
-  }, [buildEnergyItems, sceneEndpoint]);
+  }, [sceneEndpoint]);
 
   useEffect(() => {
     fetchScene();
@@ -129,7 +129,7 @@ export default function MarsPage() {
         try {
           const payload: SceneDefinition = JSON.parse(text);
           setScene(payload);
-          setEnergyItems(buildEnergyItems(payload));
+          setSceneVersion((version) => version + 1);
           setSceneLoading(false);
           setSceneError(null);
         } catch (error) {
@@ -199,7 +199,7 @@ export default function MarsPage() {
         ref.close();
       }
     };
-  }, [wsEndpoint, buildEnergyItems]);
+  }, [wsEndpoint]);
 
   const handleZoomChange = useCallback((value: number) => {
     setViewportZoom(Math.max(1, value));
@@ -241,9 +241,9 @@ export default function MarsPage() {
             gap: '1rem'
           }}
         >
-          <CollapsiblePanel title="能源概览">
-            <EnergyStatus items={energyItems} />
-          </CollapsiblePanel>
+        <CollapsiblePanel title="能源概览">
+          <EnergyStatus key={sceneVersion} items={energyItems} />
+        </CollapsiblePanel>
         </div>
         <div
           style={{
