@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 
 import CommandConsole from '@/components/CommandConsole';
 import AgentControlPad from '@/components/AgentControlPad';
-import EnergyStatus, { EnergyInfo } from '@/components/EnergyStatus';
+import EnergyStatus, { EnergyInfo, type EnergySummary } from '@/components/EnergyStatus';
 import CollapsiblePanel from '@/components/CollapsiblePanel';
 import ViewportZoomControl from '@/components/ViewportZoomControl';
 import { gameApi } from '@/lib/api/game';
@@ -67,7 +67,36 @@ export default function MarsPage() {
       }));
   }, []);
 
-  const energyItems = useMemo(() => deriveEnergyItems(scene), [deriveEnergyItems, scene]);
+  const { energyItems, energySummary } = useMemo<{
+    energyItems: EnergyInfo[];
+    energySummary: EnergySummary | undefined;
+  }>(() => {
+    const items = deriveEnergyItems(scene);
+    if (!scene) {
+      return { energyItems: items, energySummary: undefined };
+    }
+    let totalConsumption = 0;
+    let totalOutput = 0;
+    let storageCount = 0;
+    items.forEach((item) => {
+      if (item.type === 'consumer') {
+        totalConsumption += item.rate ?? 0;
+      } else if (item.type === 'storage') {
+        totalOutput += item.output ?? 0;
+        storageCount += 1;
+      }
+    });
+    const netFlow = totalOutput - totalConsumption;
+    const perStorageRate = storageCount > 0 ? Math.abs(netFlow) : 0;
+    const summary: EnergySummary = {
+      totalConsumption,
+      totalOutput,
+      netFlow,
+      perStorageRate,
+      storageCount
+    };
+    return { energyItems: items, energySummary: summary };
+  }, [deriveEnergyItems, scene]);
 
   const fetchScene = useCallback(async () => {
     setSceneLoading(true);
@@ -239,7 +268,7 @@ export default function MarsPage() {
           }}
         >
         <CollapsiblePanel title="能源概览">
-          <EnergyStatus key={sceneVersion} items={energyItems} />
+          <EnergyStatus key={sceneVersion} items={energyItems} summary={energySummary} />
         </CollapsiblePanel>
         </div>
         <div
