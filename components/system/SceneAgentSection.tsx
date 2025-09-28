@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import type { ChangeEvent } from 'react';
 import type { SceneAgent } from '@/types/scene';
+import type { SceneAgentPayload } from '@/lib/api/system';
 import {
   inputStyle,
   labelStyle,
@@ -20,14 +21,6 @@ type SceneAgentForm = {
   posY: string;
   color: string;
   actions: string;
-};
-
-export type SceneAgentPayload = {
-  label: string;
-  templateId: string | null;
-  position: [number, number];
-  color: number | null;
-  actions: string[];
 };
 
 const createEmptyForm = (): SceneAgentForm => ({

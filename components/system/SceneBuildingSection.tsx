@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import type { ChangeEvent } from 'react';
 import type { SceneBuilding } from '@/types/scene';
+import type { SceneBuildingPayload } from '@/lib/api/system';
 import {
   inputStyle,
   labelStyle,
@@ -25,19 +26,6 @@ type SceneBuildingForm = {
   energyCurrent: string;
   energyOutput: string;
   energyRate: string;
-};
-
-export type SceneBuildingPayload = {
-  label: string;
-  templateId: string | null;
-  rect: [number, number, number, number];
-  energy: {
-    type: string | null;
-    capacity: number | null;
-    current: number | null;
-    output: number | null;
-    rate: number | null;
-  };
 };
 
 const createEmptyForm = (): SceneBuildingForm => ({

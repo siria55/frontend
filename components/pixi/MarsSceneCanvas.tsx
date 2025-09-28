@@ -13,6 +13,7 @@ import type { Application, Graphics as PixiGraphics } from 'pixi.js';
 import { TextStyle } from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
 
+import { agentsApi } from '@/lib/api/agents';
 import type { SceneDefinition, SceneBuilding, SceneAgent } from '@/types/scene';
 
 type AgentAction = 'move_left' | 'move_right' | 'move_up' | 'move_down';
@@ -149,30 +150,21 @@ const useViewportSize = () => {
 
 export default function MarsSceneCanvas({ scene, zoom }: MarsSceneCanvasProps) {
   const { width, height } = useViewportSize();
-  const backendBaseUrl = useMemo(
-    () => (process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, ''),
-    []
-  );
-
   const logAgentAction = useCallback(
     async (agentId: string, action: AgentAction, origin: string) => {
       try {
-        await fetch(`${backendBaseUrl}/v1/agents/${agentId}/actions`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action_type: action,
-            actions: [action],
-            source: 'frontend',
-            issued_by: origin,
-            result_status: 'accepted'
-          })
+        await agentsApi.logAction(agentId, {
+          action_type: action,
+          actions: [action],
+          source: 'frontend',
+          issued_by: origin,
+          result_status: 'accepted'
         });
       } catch (error) {
         console.warn('failed to log agent action', error);
       }
     },
-    [backendBaseUrl]
+    []
   );
 
   const buildings: SceneBuilding[] = useMemo(

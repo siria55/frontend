@@ -11,45 +11,20 @@ import {
   secondaryButtonStyle,
   sectionTitleStyle
 } from '@/components/system/styles';
+import { BuildingTemplateSection } from '@/components/system/BuildingTemplateSection';
+import { AgentTemplateSection } from '@/components/system/AgentTemplateSection';
+import { SceneBuildingSection } from '@/components/system/SceneBuildingSection';
+import { SceneAgentSection } from '@/components/system/SceneAgentSection';
+import { ApiError } from '@/lib/api/client';
 import {
-  BuildingTemplateSection,
-  type BuildingTemplatePayload
-} from '@/components/system/BuildingTemplateSection';
-import {
-  AgentTemplateSection,
-  type AgentTemplatePayload
-} from '@/components/system/AgentTemplateSection';
-import {
-  SceneBuildingSection,
-  type SceneBuildingPayload
-} from '@/components/system/SceneBuildingSection';
-import {
-  SceneAgentSection,
-  type SceneAgentPayload
-} from '@/components/system/SceneAgentSection';
-import type {
-  SceneAgent,
-  SceneAgentTemplate,
-  SceneBuilding,
-  SceneBuildingTemplate,
-  SceneDimensions,
-  SceneGrid
-} from '@/types/scene';
-
-type SceneMeta = {
-  id: string;
-  name: string;
-};
-
-type SystemSnapshot = {
-  scene: SceneMeta;
-  grid: SceneGrid;
-  dimensions: SceneDimensions;
-  buildings: SceneBuilding[];
-  agents: SceneAgent[];
-  buildingTemplates: SceneBuildingTemplate[];
-  agentTemplates: SceneAgentTemplate[];
-};
+  systemApi,
+  type AgentTemplatePayload,
+  type BuildingTemplatePayload,
+  type SceneAgentPayload,
+  type SceneBuildingPayload,
+  type SystemSnapshot,
+  type UpdateSystemScenePayload
+} from '@/lib/api/system';
 
 const pendingKey = (scope: string, id: string) => `${scope}:${id}`;
 
@@ -61,11 +36,6 @@ const fieldGroupStyle: CSSProperties = {
 };
 
 export default function SystemPage() {
-  const backendBaseUrl = useMemo(
-    () => (process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, ''),
-    []
-  );
-
   const [snapshot, setSnapshot] = useState<SystemSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,50 +87,35 @@ export default function SystemPage() {
     setSaveMessage(null);
     setSaveError(null);
     try {
-      const response = await fetch(`${backendBaseUrl}/v1/system/scene`);
-      if (!response.ok) {
-        throw new Error(`request failed: ${response.status}`);
-      }
-      const data: SystemSnapshot = await response.json();
+      const data = await systemApi.getSnapshot();
       setSnapshot(data);
     } catch (err) {
       setSnapshot(null);
-      setError(err instanceof Error ? err.message : 'unknown error');
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError(err instanceof Error ? err.message : 'unknown error');
+      }
     } finally {
       setLoading(false);
     }
-  }, [backendBaseUrl]);
+  }, []);
 
   const performSnapshotUpdate = useCallback(
-    async (key: string, url: string, payload: unknown, successMessage: string) => {
+    async (key: string, operation: () => Promise<SystemSnapshot>, successMessage: string) => {
       setSaveError(null);
       setSaveMessage(null);
       setPendingFlag(key, true);
       try {
-        const response = await fetch(url, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-          let message = `request failed: ${response.status}`;
-          try {
-            const body = await response.json();
-            if (body?.error) {
-              message = body.error;
-            }
-          } catch {
-            // ignore parse failure
-          }
-          throw new Error(message);
-        }
-
-        const data: SystemSnapshot = await response.json();
+        const data = await operation();
         setSnapshot(data);
         setSaveMessage(successMessage);
       } catch (err) {
-        setSaveError(err instanceof Error ? err.message : 'unknown error');
+        if (err instanceof ApiError) {
+          setSaveError(err.message);
+        } else {
+          setSaveError(err instanceof Error ? err.message : 'unknown error');
+        }
       } finally {
         setPendingFlag(key, false);
       }
@@ -233,39 +188,26 @@ export default function SystemPage() {
       const width = parsePositive(form.width, 'Dimensions Width');
       const height = parsePositive(form.height, 'Dimensions Height');
 
-      const response = await fetch(`${backendBaseUrl}/v1/system/scene`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scene_id: snapshot.scene.id,
-          name,
-          grid: { cols, rows, tileSize },
-          dimensions: { width, height }
-        })
-      });
+      const updatePayload: UpdateSystemScenePayload = {
+        scene_id: snapshot.scene.id,
+        name,
+        grid: { cols, rows, tileSize },
+        dimensions: { width, height }
+      };
 
-      if (!response.ok) {
-        let message = `request failed: ${response.status}`;
-        try {
-          const payload = await response.json();
-          if (payload?.error) {
-            message = payload.error;
-          }
-        } catch {
-          // ignore json parse error
-        }
-        throw new Error(message);
-      }
-
-      const data: SystemSnapshot = await response.json();
+      const data = await systemApi.updateScene(updatePayload);
       setSnapshot(data);
       setSaveMessage('保存成功');
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'unknown error');
+      if (err instanceof ApiError) {
+        setSaveError(err.message);
+      } else {
+        setSaveError(err instanceof Error ? err.message : 'unknown error');
+      }
     } finally {
       setSaving(false);
     }
-  }, [backendBaseUrl, form, snapshot]);
+  }, [form, snapshot]);
 
   const isBuildingTemplatePending = useCallback(
     (id: string) => isPending(pendingKey('tpl-building', id)),
@@ -292,12 +234,11 @@ export default function SystemPage() {
       clearStatus();
       void performSnapshotUpdate(
         pendingKey('tpl-building', id),
-        `${backendBaseUrl}/v1/system/templates/buildings/${encodeURIComponent(id)}`,
-        payload,
+        () => systemApi.updateBuildingTemplate(id, payload),
         '建筑模板已保存'
       );
     },
-    [backendBaseUrl, clearStatus, performSnapshotUpdate]
+    [clearStatus, performSnapshotUpdate]
   );
 
   const saveAgentTemplate = useCallback(
@@ -305,12 +246,11 @@ export default function SystemPage() {
       clearStatus();
       void performSnapshotUpdate(
         pendingKey('tpl-agent', id),
-        `${backendBaseUrl}/v1/system/templates/agents/${encodeURIComponent(id)}`,
-        payload,
+        () => systemApi.updateAgentTemplate(id, payload),
         'Agent 模板已保存'
       );
     },
-    [backendBaseUrl, clearStatus, performSnapshotUpdate]
+    [clearStatus, performSnapshotUpdate]
   );
 
   const saveSceneBuilding = useCallback(
@@ -318,12 +258,11 @@ export default function SystemPage() {
       clearStatus();
       void performSnapshotUpdate(
         pendingKey('scene-building', id),
-        `${backendBaseUrl}/v1/system/scene/buildings/${encodeURIComponent(id)}`,
-        payload,
+        () => systemApi.updateSceneBuilding(id, payload),
         '场景建筑已保存'
       );
     },
-    [backendBaseUrl, clearStatus, performSnapshotUpdate]
+    [clearStatus, performSnapshotUpdate]
   );
 
   const saveSceneAgent = useCallback(
@@ -331,12 +270,11 @@ export default function SystemPage() {
       clearStatus();
       void performSnapshotUpdate(
         pendingKey('scene-agent', id),
-        `${backendBaseUrl}/v1/system/scene/agents/${encodeURIComponent(id)}`,
-        payload,
+        () => systemApi.updateSceneAgent(id, payload),
         '场景 Agent 已保存'
       );
     },
-    [backendBaseUrl, clearStatus, performSnapshotUpdate]
+    [clearStatus, performSnapshotUpdate]
   );
 
   const groupGridStyle: CSSProperties = {

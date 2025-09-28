@@ -8,6 +8,7 @@ import AgentControlPad from '@/components/AgentControlPad';
 import EnergyStatus, { EnergyInfo } from '@/components/EnergyStatus';
 import CollapsiblePanel from '@/components/CollapsiblePanel';
 import ViewportZoomControl from '@/components/ViewportZoomControl';
+import { gameApi } from '@/lib/api/game';
 import type { SceneDefinition } from '@/types/scene';
 
 const MarsSceneCanvas = dynamic(() => import('@/components/pixi/MarsSceneCanvas'), {
@@ -68,18 +69,11 @@ export default function MarsPage() {
 
   const energyItems = useMemo(() => deriveEnergyItems(scene), [deriveEnergyItems, scene]);
 
-  const backendBaseUrl = (process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, '');
-  const sceneEndpoint = `${backendBaseUrl}/v1/game/scene`;
-
   const fetchScene = useCallback(async () => {
     setSceneLoading(true);
     setSceneError(null);
     try {
-      const response = await fetch(sceneEndpoint);
-      if (!response.ok) {
-        throw new Error(`failed to load scene: ${response.status}`);
-      }
-      const payload: SceneDefinition = await response.json();
+      const payload = await gameApi.getScene();
       setScene(payload);
       setSceneVersion((version) => version + 1);
     } catch (error) {
@@ -88,7 +82,7 @@ export default function MarsPage() {
     } finally {
       setSceneLoading(false);
     }
-  }, [sceneEndpoint]);
+  }, []);
 
   useEffect(() => {
     fetchScene();
@@ -96,16 +90,12 @@ export default function MarsPage() {
 
   const wsEndpoint = useMemo(() => {
     try {
-      const url = new URL(sceneEndpoint);
-      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-      url.pathname = '/v1/game/scene/stream';
-      url.search = '';
-      return url.toString();
+      return gameApi.buildSceneStreamUrl();
     } catch (error) {
       console.warn('failed to resolve scene websocket endpoint', error);
       return '';
     }
-  }, [sceneEndpoint]);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
