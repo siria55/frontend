@@ -64,6 +64,18 @@ export type UpdateSystemScenePayload = {
   dimensions: { width: number; height: number };
 };
 
+export type TablePreviewRow = Record<string, unknown>;
+
+export type TablePreview = {
+  name: string;
+  columns: string[];
+  rows: TablePreviewRow[];
+};
+
+export type DatabasePreviewResponse = {
+  tables: TablePreview[];
+};
+
 const encodeId = (value: string) => encodeURIComponent(value);
 
 export const systemApi = {
@@ -77,6 +89,17 @@ export const systemApi = {
     apiClient.put<SystemSnapshot>(`/v1/system/scene/buildings/${encodeId(id)}`, payload),
   deleteSceneBuilding: (id: string) =>
     apiClient.delete<SystemSnapshot>(`/v1/system/scene/buildings/${encodeId(id)}`),
+  previewDatabase: (params?: { tables?: string[]; limit?: number }) => {
+    const search = new URLSearchParams();
+    params?.tables?.forEach((table) => {
+      if (table) search.append('table', table);
+    });
+    if (params?.limit) search.set('limit', String(params.limit));
+    const query = search.toString();
+    return apiClient.get<DatabasePreviewResponse>(
+      `/v1/system/db/preview${query ? `?${query}` : ''}`
+    );
+  },
   updateSceneAgent: (id: string, payload: SceneAgentPayload) =>
     apiClient.put<SystemSnapshot>(`/v1/system/scene/agents/${encodeId(id)}`, payload)
 };
