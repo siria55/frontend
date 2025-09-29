@@ -156,22 +156,59 @@ export function useAgentController(scene: SceneDefinition) {
     (from: [number, number], to: [number, number]) => {
       if (cols <= 0 || rows <= 0) return null;
 
-      const clamp = (value: number, max: number) => {
-        if (value < 0) return 0;
-        if (value >= max) return max - 1;
-        return value;
+      const clampFloor = (value: number, max: number) => {
+        const floored = Math.floor(value);
+        if (floored < 0) return 0;
+        if (floored >= max) return max - 1;
+        return floored;
       };
 
-      const startX = clamp(Math.round(from[0]), cols);
-      const startY = clamp(Math.round(from[1]), rows);
-      const goalX = clamp(Math.round(to[0]), cols);
-      const goalY = clamp(Math.round(to[1]), rows);
-
-      if (isBlocked(goalX, goalY)) {
-        return null;
-      }
+      const startX = clampFloor(from[0], cols);
+      const startY = clampFloor(from[1], rows);
+      let goalX = clampFloor(to[0], cols);
+      let goalY = clampFloor(to[1], rows);
 
       const grid = buildNavigationGrid();
+
+      if (!grid.isWalkableAt(goalX, goalY)) {
+        const visited = new Set<string>([`${goalX},${goalY}`]);
+        const queue: Array<[number, number]> = [[goalX, goalY]];
+        let found: [number, number] | null = null;
+        const directions: Array<[number, number]> = [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1]
+        ];
+
+        while (queue.length > 0 && !found) {
+          const [cx, cy] = queue.shift() as [number, number];
+          for (const [dx, dy] of directions) {
+            const nx = cx + dx;
+            const ny = cy + dy;
+            if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) {
+              continue;
+            }
+            const key = `${nx},${ny}`;
+            if (visited.has(key)) {
+              continue;
+            }
+            visited.add(key);
+            if (grid.isWalkableAt(nx, ny)) {
+              found = [nx, ny];
+              break;
+            }
+            queue.push([nx, ny]);
+          }
+        }
+
+        if (!found) {
+          return null;
+        }
+
+        [goalX, goalY] = found;
+      }
+
       const rawPath = finderRef.current.findPath(startX, startY, goalX, goalY, grid);
       if (!rawPath || rawPath.length <= 1) {
         return null;
@@ -180,7 +217,7 @@ export function useAgentController(scene: SceneDefinition) {
       const [, ...rest] = rawPath;
       return rest.map(([x, y]) => [x + 0.5, y + 0.5] as [number, number]);
     },
-    [buildNavigationGrid, cols, isBlocked, rows]
+    [buildNavigationGrid, cols, rows]
   );
 
   const clampWithinBounds = useCallback(
