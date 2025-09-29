@@ -31,8 +31,8 @@ const pendingKey = (scope: string, id: string) => `${scope}:${id}`;
 const fieldGroupStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: '0.4rem',
-  minWidth: '160px'
+  gap: '0.3rem',
+  minWidth: '140px'
 };
 
 const tocContainerStyle: CSSProperties = {
@@ -40,14 +40,14 @@ const tocContainerStyle: CSSProperties = {
   top: '2.5rem',
   display: 'flex',
   flexDirection: 'column',
-  gap: '0.75rem',
-  minWidth: '180px',
-  padding: '1rem',
-  borderRadius: '16px',
-  background: 'rgba(24, 22, 40, 0.75)',
-  border: '1px solid rgba(120, 126, 178, 0.35)',
-  boxShadow: '0 12px 28px rgba(8, 5, 20, 0.35)',
-  backdropFilter: 'blur(12px)'
+  gap: '0.6rem',
+  minWidth: '150px',
+  padding: '0.85rem',
+  borderRadius: '12px',
+  background: 'rgba(24, 22, 40, 0.7)',
+  border: '1px solid rgba(120, 126, 178, 0.28)',
+  boxShadow: '0 8px 18px rgba(8, 5, 20, 0.32)',
+  backdropFilter: 'blur(10px)'
 };
 
 const tocTitleStyle: CSSProperties = {
@@ -59,12 +59,12 @@ const tocTitleStyle: CSSProperties = {
 
 const tocButtonStyle: CSSProperties = {
   textAlign: 'left',
-  padding: '0.5rem 0.6rem',
-  borderRadius: '10px',
+  padding: '0.45rem 0.55rem',
+  borderRadius: '9px',
   border: '1px solid transparent',
   background: 'transparent',
   color: '#a9b3e0',
-  fontSize: '0.95rem',
+  fontSize: '0.9rem',
   cursor: 'pointer',
   transition: 'background 0.2s ease, color 0.2s ease, border-color 0.2s ease'
 };
@@ -336,14 +336,14 @@ export default function SystemPage() {
 
   const groupGridStyle: CSSProperties = {
     display: 'grid',
-    gap: '1.25rem',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))'
+    gap: '0.9rem',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))'
   };
 
   const groupNoteStyle: CSSProperties = {
-    margin: '0.5rem 0 0',
+    margin: '0.35rem 0 0',
     color: '#9aaafe',
-    fontSize: '0.9rem'
+    fontSize: '0.85rem'
   };
 
   const tocItems = useMemo(
@@ -361,7 +361,7 @@ export default function SystemPage() {
         minHeight: '100vh',
         width: '100vw',
         margin: 0,
-        padding: '3rem',
+        padding: '2.2rem',
         background: 'radial-gradient(circle at top, #1b1630 0%, #0d0a18 55%, #070511 100%)',
         color: '#e5e8ff'
       }}
@@ -371,7 +371,7 @@ export default function SystemPage() {
           maxWidth: '1200px',
           margin: '0 auto',
           display: 'flex',
-          gap: '2.5rem',
+          gap: '1.8rem',
           alignItems: 'flex-start'
         }}
       >
@@ -399,13 +399,13 @@ export default function SystemPage() {
           ))}
         </aside>
 
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+          <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.85rem' }}>
             <div>
-              <h1 style={{ fontSize: '2rem', margin: 0, color: '#f0f2ff' }}>System Registry · Mars Scene</h1>
-              <p style={{ margin: '0.25rem 0 0', color: '#a9b3e0' }}>数据库 system_* 表实时快照。</p>
+              <h1 style={{ fontSize: '1.65rem', margin: 0, color: '#f0f2ff' }}>System Registry · Mars Scene</h1>
+              <p style={{ margin: '0.2rem 0 0', color: '#a9b3e0', fontSize: '0.9rem' }}>数据库 system_* 表实时快照。</p>
             </div>
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={handleSave}
@@ -449,11 +449,11 @@ export default function SystemPage() {
         )}
 
         {snapshot && !loading && (
-          <div style={{ display: 'grid', gap: '1.5rem' }}>
-            <section ref={sceneInfoRef} style={{ ...panelStyle, scrollMarginTop: '100px' }}>
+          <div style={{ display: 'grid', gap: '1.1rem' }}>
+            <section ref={sceneInfoRef} style={{ ...panelStyle, scrollMarginTop: '90px' }}>
               <h2 style={sectionTitleStyle}>场景信息</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
                   <div style={fieldGroupStyle}>
                     <span style={labelStyle}>Scene ID</span>
                     <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{snapshot.scene.id}</div>
@@ -470,7 +470,7 @@ export default function SystemPage() {
                     />
                   </div>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
                   <div style={fieldGroupStyle}>
                     <label style={labelStyle} htmlFor="grid-cols">Grid Cols</label>
                     <input
@@ -505,7 +505,7 @@ export default function SystemPage() {
                     />
                   </div>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
                   <div style={fieldGroupStyle}>
                     <label style={labelStyle} htmlFor="dim-width">Dimensions Width</label>
                     <input
@@ -532,7 +532,7 @@ export default function SystemPage() {
               </div>
             </section>
 
-            <section ref={templatesRef} style={{ ...panelStyle, scrollMarginTop: '100px' }}>
+            <section ref={templatesRef} style={{ ...panelStyle, scrollMarginTop: '90px' }}>
               <h2 style={sectionTitleStyle}>模板配置</h2>
               <p style={groupNoteStyle}>维护系统级模板，影响所有场景实例的默认外观与属性。</p>
               <div style={groupGridStyle}>
@@ -557,7 +557,7 @@ export default function SystemPage() {
               </div>
             </section>
 
-            <section ref={entitiesRef} style={{ ...panelStyle, scrollMarginTop: '100px' }}>
+            <section ref={entitiesRef} style={{ ...panelStyle, scrollMarginTop: '90px' }}>
               <h2 style={sectionTitleStyle}>场景实体</h2>
               <p style={groupNoteStyle}>直接作用于当前场景的建筑与 Agent 实例，可覆盖模板配置。</p>
               <div style={groupGridStyle}>
