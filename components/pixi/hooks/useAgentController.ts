@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import PF from 'pathfinding';
 
 import { agentsApi } from '@/lib/api/agents';
 import { gameApi } from '@/lib/api/game';
@@ -38,9 +39,11 @@ const ensurePosition = (position: number[]): [number, number] => {
 
 const isMovementActionString = (value: string): value is AgentBehavior => isMovementAction(value);
 
-const MOVEMENT_SPEED = 0.22;
+const MOVEMENT_SPEED = 0.1;
 const COMMAND_STEP = 0.12;
 const PLAYER_ID = 'ares-01';
+const PATH_STEP = 0.08;
+const PATH_DELAY_MS = 500;
 
 export function useAgentController(scene: SceneDefinition) {
   const buildings = useMemo<SceneBuilding[]>(
@@ -66,6 +69,8 @@ export function useAgentController(scene: SceneDefinition) {
   );
   const latestPositionsRef = useRef<Map<string, [number, number]>>(new Map());
   const lastSyncedPositionsRef = useRef<Map<string, [number, number]>>(new Map());
+  const pathQueueRef = useRef<Map<string, [number, number][]>>(new Map());
+  const pathCooldownRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     const nextPersisted = new Map(persistedPositionsRef.current);
@@ -130,6 +135,54 @@ export function useAgentController(scene: SceneDefinition) {
     [buildings]
   );
 
+  const buildNavigationGrid = useCallback(() => {
+    const grid = new PF.Grid(cols, rows);
+    buildings.forEach((building) => {
+      const [bx, by, bw, bh] = building.rect;
+      for (let x = bx; x < bx + bw; x += 1) {
+        for (let y = by; y < by + bh; y += 1) {
+          if (x >= 0 && x < cols && y >= 0 && y < rows) {
+            grid.setWalkableAt(x, y, false);
+          }
+        }
+      }
+    });
+    return grid;
+  }, [buildings, cols, rows]);
+
+  const finderRef = useRef(new PF.AStarFinder());
+
+  const computePath = useCallback(
+    (from: [number, number], to: [number, number]) => {
+      if (cols <= 0 || rows <= 0) return null;
+
+      const clamp = (value: number, max: number) => {
+        if (value < 0) return 0;
+        if (value >= max) return max - 1;
+        return value;
+      };
+
+      const startX = clamp(Math.round(from[0]), cols);
+      const startY = clamp(Math.round(from[1]), rows);
+      const goalX = clamp(Math.round(to[0]), cols);
+      const goalY = clamp(Math.round(to[1]), rows);
+
+      if (isBlocked(goalX, goalY)) {
+        return null;
+      }
+
+      const grid = buildNavigationGrid();
+      const rawPath = finderRef.current.findPath(startX, startY, goalX, goalY, grid);
+      if (!rawPath || rawPath.length <= 1) {
+        return null;
+      }
+
+      const [, ...rest] = rawPath;
+      return rest.map(([x, y]) => [x + 0.5, y + 0.5] as [number, number]);
+    },
+    [buildNavigationGrid, cols, isBlocked, rows]
+  );
+
   const clampWithinBounds = useCallback(
     (value: number, max: number) => {
       if (max <= 0) return value;
@@ -181,24 +234,57 @@ export function useAgentController(scene: SceneDefinition) {
         prev.map((agent) => {
           const persistent = new Set(agent.actions ?? []);
           const isPlayer = agent.id === PLAYER_ID;
+          const activePath = pathQueueRef.current.get(agent.id);
 
           let nextX = agent.position[0];
           let nextY = agent.position[1];
 
-          if (isPlayer) {
-            if (keyState.w) nextY -= MOVEMENT_SPEED;
-            if (keyState.s) nextY += MOVEMENT_SPEED;
-            if (keyState.a) nextX -= MOVEMENT_SPEED;
-            if (keyState.d) nextX += MOVEMENT_SPEED;
-          }
+          if (activePath && activePath.length > 0) {
+            const nowTs = Date.now();
+            const lastMoveTs = pathCooldownRef.current.get(agent.id) ?? 0;
+            if (nowTs - lastMoveTs < PATH_DELAY_MS) {
+              return agent;
+            }
+            const [targetX, targetY] = activePath[0];
+            const dx = targetX - nextX;
+            const dy = targetY - nextY;
+            const dist = Math.hypot(dx, dy);
 
-          if (persistent.has('move_up')) nextY -= COMMAND_STEP;
-          if (persistent.has('move_down')) nextY += COMMAND_STEP;
-          if (persistent.has('move_left')) nextX -= COMMAND_STEP;
-          if (persistent.has('move_right')) nextX += COMMAND_STEP;
+            if (dist <= PATH_STEP) {
+              nextX = targetX;
+              nextY = targetY;
+              activePath.shift();
+              if (activePath.length === 0) {
+                pathQueueRef.current.delete(agent.id);
+                pathCooldownRef.current.delete(agent.id);
+              }
+            } else if (dist > 0) {
+              const step = Math.min(PATH_STEP, dist);
+              nextX += (dx / dist) * step;
+              nextY += (dy / dist) * step;
+            }
 
-          if (!isPlayer && persistent.size === 0) {
-            return agent;
+            if (pathQueueRef.current.has(agent.id)) {
+              pathCooldownRef.current.set(agent.id, nowTs);
+            }
+            persistent.clear();
+          } else {
+            pathCooldownRef.current.delete(agent.id);
+            if (isPlayer) {
+              if (keyState.w) nextY -= MOVEMENT_SPEED;
+              if (keyState.s) nextY += MOVEMENT_SPEED;
+              if (keyState.a) nextX -= MOVEMENT_SPEED;
+              if (keyState.d) nextX += MOVEMENT_SPEED;
+            }
+
+            if (persistent.has('move_up')) nextY -= COMMAND_STEP;
+            if (persistent.has('move_down')) nextY += COMMAND_STEP;
+            if (persistent.has('move_left')) nextX -= COMMAND_STEP;
+            if (persistent.has('move_right')) nextX += COMMAND_STEP;
+
+            if (!isPlayer && persistent.size === 0) {
+              return agent;
+            }
           }
 
           nextX = clampWithinBounds(nextX, cols);
@@ -298,31 +384,53 @@ export function useAgentController(scene: SceneDefinition) {
             const relocation = payload.relocation;
             if (relocation) {
               const [rx, ry] = relocation.position;
-              const message = `系统提示：${relocation.id} 自动移至 (${Math.round(rx)}, ${Math.round(ry)}) 以部署太阳能塔`;
+              const message = `系统提示：${relocation.id} 自动导航至 (${Math.round(rx)}, ${Math.round(ry)}) 以部署太阳能塔`;
               window.dispatchEvent(
                 new CustomEvent<string>(SYSTEM_LOG_EVENT, {
                   detail: message
                 })
               );
-              const now = Date.now();
-              const snapshot: [number, number] = [rx, ry];
-              persistedPositionsRef.current.set(relocation.id, {
-                position: snapshot,
-                updatedAt: now
-              });
-              latestPositionsRef.current.set(relocation.id, snapshot);
-              lastSyncedPositionsRef.current.set(relocation.id, snapshot);
-              setAgents((prev) =>
-                prev.map((agent) =>
-                  agent.id === relocation.id
-                    ? {
-                        ...agent,
-                        position: snapshot,
-                        updatedAt: now
-                      }
-                    : agent
-                )
-              );
+              const current = latestPositionsRef.current.get(relocation.id);
+              if (current) {
+                const path = computePath(current, [rx, ry]);
+                if (path && path.length > 0) {
+                  pathQueueRef.current.set(relocation.id, path);
+                  pathCooldownRef.current.set(relocation.id, Date.now());
+                  setAgents((prev) =>
+                    prev.map((agent) =>
+                      agent.id === relocation.id
+                        ? {
+                            ...agent,
+                            actions: [],
+                            updatedAt: Date.now()
+                          }
+                        : agent
+                    )
+                  );
+                } else {
+                  pathCooldownRef.current.delete(relocation.id);
+                  const now = Date.now();
+                  const snapshot: [number, number] = [rx, ry];
+                  persistedPositionsRef.current.set(relocation.id, {
+                    position: snapshot,
+                    updatedAt: now
+                  });
+                  latestPositionsRef.current.set(relocation.id, snapshot);
+                  lastSyncedPositionsRef.current.set(relocation.id, snapshot);
+                  setAgents((prev) =>
+                    prev.map((agent) =>
+                      agent.id === relocation.id
+                        ? {
+                            ...agent,
+                            position: snapshot,
+                            updatedAt: now,
+                            actions: []
+                          }
+                        : agent
+                    )
+                  );
+                }
+              }
             }
           })
           .catch((error) => {
@@ -354,7 +462,7 @@ export function useAgentController(scene: SceneDefinition) {
     return () => {
       window.removeEventListener('mars-agent-command', handleAgentCommand as EventListener);
     };
-  }, [logAgentAction]);
+  }, [logAgentAction, computePath]);
 
   return {
     agents,
