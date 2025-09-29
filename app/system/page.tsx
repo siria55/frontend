@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ChangeEvent, CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ChangeEvent, CSSProperties, RefObject } from 'react';
 
 import {
   inputStyle,
@@ -35,6 +35,40 @@ const fieldGroupStyle: CSSProperties = {
   minWidth: '160px'
 };
 
+const tocContainerStyle: CSSProperties = {
+  position: 'sticky',
+  top: '2.5rem',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.75rem',
+  minWidth: '180px',
+  padding: '1rem',
+  borderRadius: '16px',
+  background: 'rgba(24, 22, 40, 0.75)',
+  border: '1px solid rgba(120, 126, 178, 0.35)',
+  boxShadow: '0 12px 28px rgba(8, 5, 20, 0.35)',
+  backdropFilter: 'blur(12px)'
+};
+
+const tocTitleStyle: CSSProperties = {
+  fontSize: '1rem',
+  fontWeight: 600,
+  color: '#c7cbf8',
+  margin: 0
+};
+
+const tocButtonStyle: CSSProperties = {
+  textAlign: 'left',
+  padding: '0.5rem 0.6rem',
+  borderRadius: '10px',
+  border: '1px solid transparent',
+  background: 'transparent',
+  color: '#a9b3e0',
+  fontSize: '0.95rem',
+  cursor: 'pointer',
+  transition: 'background 0.2s ease, color 0.2s ease, border-color 0.2s ease'
+};
+
 export default function SystemPage() {
   const [snapshot, setSnapshot] = useState<SystemSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,6 +85,16 @@ export default function SystemPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [pendingMap, setPendingMap] = useState<Record<string, boolean>>({});
+
+  const sceneInfoRef = useRef<HTMLDivElement | null>(null);
+  const templatesRef = useRef<HTMLDivElement | null>(null);
+  const entitiesRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToRef = useCallback((target: RefObject<HTMLDivElement>) => {
+    if (target.current) {
+      target.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
 
   const clearStatus = useCallback(() => {
     setSaveError(null);
@@ -302,6 +346,15 @@ export default function SystemPage() {
     fontSize: '0.9rem'
   };
 
+  const tocItems = useMemo(
+    () => [
+      { key: 'scene', label: '场景信息', ref: sceneInfoRef },
+      { key: 'templates', label: '模板配置', ref: templatesRef },
+      { key: 'entities', label: '场景实体', ref: entitiesRef }
+    ],
+    [sceneInfoRef, templatesRef, entitiesRef]
+  );
+
   return (
     <main
       style={{
@@ -313,13 +366,46 @@ export default function SystemPage() {
         color: '#e5e8ff'
       }}
     >
-      <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-          <div>
-            <h1 style={{ fontSize: '2rem', margin: 0, color: '#f0f2ff' }}>System Registry · Mars Scene</h1>
-            <p style={{ margin: '0.25rem 0 0', color: '#a9b3e0' }}>数据库 system_* 表实时快照。</p>
-          </div>
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+      <div
+        style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          display: 'flex',
+          gap: '2.5rem',
+          alignItems: 'flex-start'
+        }}
+      >
+        <aside style={tocContainerStyle}>
+          <h2 style={tocTitleStyle}>内容导航</h2>
+          {tocItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              style={tocButtonStyle}
+              onClick={() => scrollToRef(item.ref)}
+              onMouseEnter={(event) => {
+                (event.currentTarget.style.backgroundColor = 'rgba(126, 132, 190, 0.18)');
+                event.currentTarget.style.borderColor = 'rgba(161, 168, 228, 0.45)';
+                event.currentTarget.style.color = '#dee2ff';
+              }}
+              onMouseLeave={(event) => {
+                event.currentTarget.style.backgroundColor = 'transparent';
+                event.currentTarget.style.borderColor = 'transparent';
+                event.currentTarget.style.color = '#a9b3e0';
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </aside>
+
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h1 style={{ fontSize: '2rem', margin: 0, color: '#f0f2ff' }}>System Registry · Mars Scene</h1>
+              <p style={{ margin: '0.25rem 0 0', color: '#a9b3e0' }}>数据库 system_* 表实时快照。</p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={handleSave}
@@ -364,7 +450,7 @@ export default function SystemPage() {
 
         {snapshot && !loading && (
           <div style={{ display: 'grid', gap: '1.5rem' }}>
-            <section style={panelStyle}>
+            <section ref={sceneInfoRef} style={{ ...panelStyle, scrollMarginTop: '100px' }}>
               <h2 style={sectionTitleStyle}>场景信息</h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
@@ -446,7 +532,7 @@ export default function SystemPage() {
               </div>
             </section>
 
-            <section style={panelStyle}>
+            <section ref={templatesRef} style={{ ...panelStyle, scrollMarginTop: '100px' }}>
               <h2 style={sectionTitleStyle}>模板配置</h2>
               <p style={groupNoteStyle}>维护系统级模板，影响所有场景实例的默认外观与属性。</p>
               <div style={groupGridStyle}>
@@ -471,7 +557,7 @@ export default function SystemPage() {
               </div>
             </section>
 
-            <section style={panelStyle}>
+            <section ref={entitiesRef} style={{ ...panelStyle, scrollMarginTop: '100px' }}>
               <h2 style={sectionTitleStyle}>场景实体</h2>
               <p style={groupNoteStyle}>直接作用于当前场景的建筑与 Agent 实例，可覆盖模板配置。</p>
               <div style={groupGridStyle}>
@@ -498,6 +584,7 @@ export default function SystemPage() {
             </section>
           </div>
         )}
+        </div>
       </div>
     </main>
   );
