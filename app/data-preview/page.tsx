@@ -69,6 +69,7 @@ export default function DataPreviewPage() {
           <DatabaseGrid
             key={table.name}
             title={table.name}
+            schema={table.schema}
             columns={table.columns}
             rows={table.rows}
             description="展示前 25 行"

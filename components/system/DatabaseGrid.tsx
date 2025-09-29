@@ -3,7 +3,7 @@
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 import type { ColDef, GridApi, GridOptions } from 'ag-grid-community';
-import { createGrid } from 'ag-grid-community';
+import { createGrid, ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
 
 import { panelStyle, sectionTitleStyle } from '@/components/system/styles';
 
@@ -11,7 +11,19 @@ type RowData = Record<string, unknown>;
 
 const gridContainerStyle: CSSProperties = {
   width: '100%',
-  height: '320px'
+  height: '320px',
+  backgroundColor: '#13141b',
+  borderRadius: '12px',
+  padding: '0.5rem',
+  ['--ag-background-color' as any]: '#1c1e26',
+  ['--ag-foreground-color' as any]: '#f5f5f7',
+  ['--ag-header-background-color' as any]: '#242733',
+  ['--ag-header-foreground-color' as any]: '#f5f5f7',
+  ['--ag-odd-row-background-color' as any]: '#191b23',
+  ['--ag-even-row-background-color' as any]: '#1c1e26',
+  ['--ag-border-color' as any]: '#2a2d3a',
+  ['--ag-row-hover-color' as any]: '#2f3241',
+  ['--ag-selected-row-background-color' as any]: '#31344a'
 };
 
 const noteStyle: CSSProperties = {
@@ -22,8 +34,24 @@ const noteStyle: CSSProperties = {
 
 const themeClass = 'ag-theme-alpine';
 
+const ensureModulesRegistered = () => {
+  if (typeof globalThis === 'undefined') {
+    return;
+  }
+  const scope = globalThis as typeof globalThis & {
+    __agGridCommunityRegistered?: boolean;
+  };
+  if (!scope.__agGridCommunityRegistered) {
+    ModuleRegistry.registerModules([AllCommunityModule]);
+    scope.__agGridCommunityRegistered = true;
+  }
+};
+
+ensureModulesRegistered();
+
 interface DatabaseGridProps {
   title: string;
+  schema?: string;
   columns: string[];
   rows: RowData[];
   description?: string;
@@ -52,7 +80,7 @@ const formatCellValue = (value: unknown): string => {
   return String(value);
 };
 
-export default function DatabaseGrid({ title, columns, rows, description }: DatabaseGridProps) {
+export default function DatabaseGrid({ title, schema, columns, rows, description }: DatabaseGridProps) {
   const gridRef = useRef<HTMLDivElement | null>(null);
   const gridApiRef = useRef<GridApi<RowData> | null>(null);
 
@@ -117,7 +145,7 @@ export default function DatabaseGrid({ title, columns, rows, description }: Data
 
   return (
     <section style={panelStyle}>
-      <h2 style={sectionTitleStyle}>{title}</h2>
+      <h2 style={sectionTitleStyle}>{schema ? `${schema}.${title}` : title}</h2>
       <p style={noteStyle}>
         共 {rows.length} 条记录
         {description ? ` · ${description}` : ''}

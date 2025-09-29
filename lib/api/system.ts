@@ -67,6 +67,7 @@ export type UpdateSystemScenePayload = {
 export type TablePreviewRow = Record<string, unknown>;
 
 export type TablePreview = {
+  schema: string;
   name: string;
   columns: string[];
   rows: TablePreviewRow[];
